@@ -110,7 +110,15 @@ function Login() {
                 <label className="text-xs font-semibold text-slate-600 uppercase mb-1 block">Password</label>
                 <div className="relative"><Lock className="absolute left-3 top-3.5 w-4 h-4 text-slate-400"/><input type={showPassword ? 'text' : 'password'} required value={password} onChange={e=>setPassword(e.target.value)} placeholder="Enter password" className="w-full pl-10 pr-10 py-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-blue-500" /><button type="button" onClick={()=>setShowPassword(!showPassword)} className="absolute right-3 top-3 text-xs text-slate-500">{showPassword?'Hide':'Show'}</button></div>
               </div>
-              {!isLogin && <select value={role} onChange={e=>setRole(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm"><option value="employee">Employee</option><option value="admin">Admin</option></select>}
+              {!isLogin && (
+              <div>
+                <label className="text-xs font-semibold text-slate-600 uppercase mb-1 block">Role</label>
+                <select value={role}onChange={e=>setRole(e.target.value)}className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+                <option value="employee" className="text-slate-900 bg-white">Employee</option>
+                <option value="admin" className="text-slate-900 bg-white">Admin</option>
+                </select>
+              </div>
+              )}
 
               {isLogin && (
                 <div className="flex items-center justify-between text-xs mt-1">
