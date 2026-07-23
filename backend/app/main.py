@@ -4,7 +4,14 @@ from fastapi.responses import RedirectResponse
 
 from app.config import settings
 from app.database import engine, Base
-from app.routers import auth, tasks, notifications, dashboard
+
+from app.routers import (
+    auth,
+    tasks,
+    notifications,
+    dashboard,
+    reminders
+)
 
 # Create database tables automatically
 Base.metadata.create_all(bind=engine)
@@ -31,6 +38,8 @@ app.include_router(auth.router, prefix=settings.API_V1_STR)
 app.include_router(tasks.router, prefix=settings.API_V1_STR)
 app.include_router(notifications.router, prefix=settings.API_V1_STR)
 app.include_router(dashboard.router, prefix=settings.API_V1_STR)
+app.include_router(reminders.router, prefix=settings.API_V1_STR)
+
 
 @app.get("/", include_in_schema=False)
 def root_redirect():

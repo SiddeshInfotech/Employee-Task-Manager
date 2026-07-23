@@ -1,4 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import URL
+
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Employee Task Tracker"
@@ -7,11 +9,30 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080
 
-    DATABASE_URL: str
+    DB_HOST: str
+    DB_PORT: int
+    DB_USER: str
+    DB_PASSWORD: str
+    DB_NAME: str
+    DB_CHARSET: str = "utf8mb4"
 
     model_config = SettingsConfigDict(
+        env_file=".env",
         case_sensitive=True,
-        env_file=".env"
+        extra="ignore"
     )
+
+    @property
+    def DATABASE_URL(self):
+        return URL.create(
+            drivername="mysql+pymysql",
+            username=self.DB_USER,
+            password=self.DB_PASSWORD,
+            host=self.DB_HOST,
+            port=self.DB_PORT,
+            database=self.DB_NAME,
+            query={"charset": self.DB_CHARSET},
+        )
+
 
 settings = Settings()
