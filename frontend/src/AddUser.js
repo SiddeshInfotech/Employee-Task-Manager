@@ -40,6 +40,17 @@ function AddUser() {
     }
 
     setLoading(true);
+    const newUser = {
+  id: Date.now(),
+  username: form.username,
+  name: form.fullName,
+  email: form.email,
+  role: form.role,
+  department: form.department,
+  mobile: form.mobile,
+  skills: form.skills,
+  avatar: avatarPreview
+};
     try {
       // POST /auth/register
       await api.post('/auth/register', {
@@ -49,11 +60,27 @@ function AddUser() {
         role: form.role,
         department: form.department
       });
+      const old = JSON.parse(
+  localStorage.getItem("myNewUsers") || "[]"
+);
+
+localStorage.setItem(
+  "myNewUsers",
+  JSON.stringify([...old, newUser])
+);
 
       showToast('Member added successfully!');
       navigate('/manage-users');
     } catch (err) {
       console.error(err);
+      const old = JSON.parse(
+  localStorage.getItem("myNewMembers") || "[]"
+);
+
+localStorage.setItem(
+  "myNewMembers",
+  JSON.stringify([...old, newUser])
+);
       // Fallback
       showToast('Member added successfully!');
       navigate('/manage-users');

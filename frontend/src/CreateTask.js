@@ -11,7 +11,7 @@ function CreateTask() {
     description: '',
     status: 'pending',
     priority: 'high',
-    due_date: '2026-07-20T18:00:00Z',
+    due_date: '2026-07-20T18:00',
     assigned_to_id: ''
   });
   const [users, setUsers] = useState([]);
@@ -41,16 +41,16 @@ function CreateTask() {
         status: taskForm.status,
         priority: taskForm.priority,
         due_date: new Date(taskForm.due_date).toISOString(),
-        assigned_to_id: taskForm.assigned_to_id || null
+        assigned_to_id: taskForm.assigned_to_id ? Number(taskForm.assigned_to_id)
+        : null
       });
 
       showToast('Task created successfully');
       navigate('/my-task');
     } catch (err) {
-      console.error(err);
-      showToast('Task created successfully');
-      navigate('/my-task');
-    }
+  console.error(err);
+  showToast('Failed to create task');
+}
   };
 
   const handleReset = () => {
@@ -59,7 +59,7 @@ function CreateTask() {
       description: '',
       status: 'pending',
       priority: 'high',
-      due_date: '2026-07-20T18:00:00Z',
+      due_date: '',
       assigned_to_id: ''
     });
   };
@@ -148,12 +148,17 @@ function CreateTask() {
               <div>
                 <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Due Date</label>
                 <input
-                  type="datetime-local"
-                  required
-                  value={taskForm.due_date.slice(0, 16)}
-                  onChange={(e) => setTaskForm({ ...taskForm, due_date: new Date(e.target.value).toISOString() })}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none"
-                />
+  type="datetime-local"
+  required
+  value={taskForm.due_date}
+  onChange={(e) =>
+    setTaskForm({
+      ...taskForm,
+      due_date: e.target.value
+    })
+  }
+  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none"
+/>
               </div>
 
               {/* Assign To (Only shown if Admin) */}

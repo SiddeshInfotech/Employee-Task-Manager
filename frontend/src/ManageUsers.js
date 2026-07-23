@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Search, UserPlus, Trash2, Edit, Award } from 'lucide-react';
+import { Search, UserPlus, Trash2, Edit } from 'lucide-react';
 import Navbar from './Navbar';
 import api, { showToast } from './axios';
 
-const initialUsers = [
-  { id: 1, username: 'John Smith', email: 'john.smith@company.com', role: 'employee', department: 'Marketing', is_active: true, avatar: 'https://randomuser.me/api/portraits/men/1.jpg' },
-  { id: 2, username: 'Sara Johnson', email: 'sara.j@company.com', role: 'employee', department: 'Development', is_active: true, avatar: 'https://randomuser.me/api/portraits/women/2.jpg' },
-  { id: 3, username: 'David Lee', email: 'david.lee@company.com', role: 'admin', department: 'IT', is_active: true, avatar: 'https://randomuser.me/api/portraits/men/3.jpg' },
-];
 
 function ManageUsers() {
   const navigate = useNavigate();
-  const [users, setUsers] = useState(initialUsers);
+  const [users, setUsers] = useState([]);
+  useEffect(() => {
+  const newUsers = JSON.parse(
+    localStorage.getItem("myNewMembers") || "[]"
+  );
+
+  setUsers((prev) => [...prev, ...newUsers]);
+}, []);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
   const [editUser, setEditUser] = useState(null);
@@ -33,8 +35,14 @@ function ManageUsers() {
           setUsers(res.data);
         }
       } catch (err) {
-        console.error('Failed to load users from API, using default data.', err);
-      }
+  console.error('Failed to load users from API.', err);
+
+  const localUsers = JSON.parse(
+    localStorage.getItem("myNewMembers") || "[]"
+  );
+
+  setUsers(localUsers);
+}
     };
     fetchUsers();
   }, [localRole, navigate]);
@@ -44,10 +52,24 @@ function ManageUsers() {
     try {
       await api.delete(`/users/${id}`);
       showToast('User deleted successfully');
-      setUsers(prev => prev.filter(u => u.id !== id));
+      const updatedUsers = users.filter((u) => u.id !== id);
+
+setUsers(updatedUsers);
+
+localStorage.setItem(
+  "myNewMembers",
+  JSON.stringify(updatedUsers)
+);
     } catch (err) {
       console.error(err);
-      setUsers(prev => prev.filter(u => u.id !== id));
+      const updatedUsers = users.filter((u) => u.id !== id);
+
+setUsers(updatedUsers);
+
+localStorage.setItem(
+  "myNewMembers",
+  JSON.stringify(updatedUsers)
+);
       showToast('User deleted successfully');
     }
   };
@@ -61,7 +83,16 @@ function ManageUsers() {
         role: editUser.role
       });
       showToast('User updated');
-      setUsers(prev => prev.map(u => u.id === editUser.id ? editUser : u));
+      const updatedUsers = users.map((u) =>
+  u.id === editUser.id ? editUser : u
+);
+
+setUsers(updatedUsers);
+
+localStorage.setItem(
+  "myNewMembers",
+  JSON.stringify(updatedUsers)
+);
       setEditUser(null);
     } catch (err) {
       console.error(err);
@@ -97,7 +128,7 @@ function ManageUsers() {
             <p className="text-sm text-slate-300 mt-1">Admin configuration dashboard for members and credentials</p>
           </div>
           
-          <Link to="/manage-users/add" className="no-underline">
+          <Link to="/add member" className="no-underline">
             <button className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/25">
               <UserPlus className="w-4.5 h-4.5" />
               Add Member
@@ -169,16 +200,16 @@ function ManageUsers() {
                           alt={u.username}
                           className="w-9 h-9 rounded-full object-cover border border-slate-200"
                         />
-                        <span className="font-bold text-slate-900 text-sm">{u.username}</span>
+                        <span className="font-bold text-slate-900 text-sm">{u.username || u.name}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-semibold">{u.email}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                       <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${u.role === 'admin' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-600'}`}>
-                        {u.role}
+                        {u.role || 'employee'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-medium">{u.department || 'IT'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-medium">{u.department || u.dept || 'IT'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-semibold">
                       <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-600">
                         {u.is_active !== false ? 'Active' : 'Inactive'}
@@ -221,8 +252,8 @@ function ManageUsers() {
                 <input
                   type="text"
                   required
-                  value={editUser.username}
-                  onChange={(e) => setEditUser({ ...editUser, username: e.target.value })}
+                  value={editUser.username || editUser.name}
+                  onChange={(e) => setEditUser({ ...editUser, username: e.target.value, name: e.target.value })}
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-500"
                 />
               </div>
@@ -241,7 +272,7 @@ function ManageUsers() {
               <div>
                 <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Role</label>
                 <select
-                  value={editUser.role}
+                  value={editUser.role || 'employee'}
                   onChange={(e) => setEditUser({ ...editUser, role: e.target.value })}
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-500"
                 >

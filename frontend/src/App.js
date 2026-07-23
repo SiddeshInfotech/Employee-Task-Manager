@@ -2,7 +2,6 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Landing from './Landing';
 import Login from './Login';
-import Register from './Register';
 import Dashboard from './Dashboard';
 import TeamMembers from './TeamMembers';
 import Settings from './Settings';
@@ -41,7 +40,6 @@ function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/team" element={<TeamMembers />} />
           <Route path="/settings" element={<Settings />} />

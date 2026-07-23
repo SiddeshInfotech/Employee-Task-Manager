@@ -48,11 +48,11 @@ function Reports() {
         ]);
       }
 
-      const tasksRes = await api.get('/tasks/?skip=0&limit=100');
+      const tasksRes = await api.get('/tasks/');
       if (tasksRes.data && tasksRes.data.length > 0) {
         let highCount = 0, medCount = 0, lowCount = 0;
         tasksRes.data.forEach(t => {
-          const p = t.priority.toLowerCase();
+          const p = t.priority?.toLowerCase() || '';
           if (p === 'high') highCount++;
           else if (p === 'medium') medCount++;
           else lowCount++;

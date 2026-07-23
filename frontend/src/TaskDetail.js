@@ -87,7 +87,7 @@ function TaskDetail() {
     } catch (err) {
       console.error(err);
       // Fallback
-      showToast('Task updated successfully');
+      showToast('Failed to update task');
       setEditing(false);
     }
   };
@@ -105,7 +105,7 @@ function TaskDetail() {
       navigate('/my-task');
     } catch (err) {
       console.error(err);
-      showToast('Task deleted successfully');
+      showToast('Failed to delete task');
       navigate('/my-task');
     }
   };

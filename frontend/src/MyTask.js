@@ -4,17 +4,9 @@ import { Search, Plus, Trash2, Eye } from 'lucide-react';
 import Navbar from './Navbar';
 import api, { showToast } from './axios';
 
-const dummyTasks = [
-  { id: 1, task: 'Design Homepage Layout', due: 'Apr 22, 2024', status: 'In Progress', priority: 'High', progress: 60, assignee: 'Emma Brown' },
-  { id: 2, task: 'Update Client Documents', due: 'Apr 20, 2024', status: 'Completed', priority: 'Medium', progress: 100, assignee: 'Alex Smith' },
-  { id: 3, task: 'Prepare Weekly Report', due: 'Apr 18, 2024', status: 'Pending', priority: 'Low', progress: 30, assignee: 'David Johnson' },
-  { id: 4, task: 'Test Website Features', due: 'Apr 17, 2024', status: 'In Progress', priority: 'High', progress: 50, assignee: 'Sarah Lee' },
-  { id: 5, task: 'Conduct Market Research', due: 'Apr 15, 2024', status: 'Completed', priority: 'Medium', progress: 100, assignee: 'Alex Smith' },
-];
-
 function MyTask() {
   const navigate = useNavigate();
-  const [tasks, setTasks] = useState(dummyTasks);
+  const [tasks, setTasks] = useState([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [priorityFilter, setPriorityFilter] = useState('All');
@@ -25,21 +17,29 @@ function MyTask() {
   const fetchTasks = async () => {
     try {
       const res = await api.get('/tasks/?skip=0&limit=100');
-      if (res.data && res.data.length > 0) {
+      if (res.data) {
         const mapped = res.data.map(t => ({
           id: t.id,
           task: t.title,
           due: t.due_date ? new Date(t.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No Due Date',
-          status: t.status === 'in_progress' ? 'In Progress' : t.status.charAt(0).toUpperCase() + t.status.slice(1),
-          priority: t.priority.charAt(0).toUpperCase() + t.priority.slice(1),
+          status: t.status
+  ? (t.status === 'in_progress'
+      ? 'In Progress'
+      : t.status.charAt(0).toUpperCase() + t.status.slice(1))
+  : 'Pending',
+
+priority: t.priority
+  ? t.priority.charAt(0).toUpperCase() + t.priority.slice(1)
+  : 'Low',
           progress: t.status === 'completed' ? 100 : t.status === 'in_progress' ? 60 : 20,
           assignee: t.assigned_to || 'Assigned'
         }));
         setTasks(mapped);
       }
     } catch (err) {
-      console.error('Failed to load tasks from API, using default data.', err);
-    }
+   console.error(err);
+   showToast("Failed to fetch tasks", "error");
+}
   };
 
   useEffect(() => {
@@ -56,10 +56,9 @@ function MyTask() {
       showToast('Task deleted successfully');
       fetchTasks();
     } catch (err) {
-      console.error(err);
-      setTasks(prev => prev.filter(t => t.id !== id));
-      showToast('Task deleted successfully');
-    }
+   console.error(err);
+   showToast("Failed to delete task", "error");
+}
   };
 
   const getStatusStyle = (status) => {

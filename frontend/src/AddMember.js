@@ -39,6 +39,7 @@ function AddMember() {
       name: form.fullName.trim(),
       department: form.department,
       email: form.email,
+      role: 'employee',
       phone: `+91 ${digits.slice(0,5)} ${digits.slice(5)}`,
       skills: form.skills,
       status: 'Active',
@@ -49,17 +50,20 @@ function AddMember() {
 
     try { await API.post('/team-members/', payload); } catch(e){ console.log("API fail", e); }
 
-    const newMember = {
-      id: Date.now(),
-      name: form.fullName.trim(),
-      dept: form.department,
-      email: form.email,
-      phone: `+91 ${digits.slice(0,5)} ${digits.slice(5)}`,
-      skills: form.skills,
-      assigned: 0, completed: 0, status: 'Active',
-      avatar: avatarUrl,
-      joinDate: new Date().toLocaleDateString()
-    };
+   const newMember = {
+  id: Date.now(),
+  name: form.fullName.trim(),
+  dept: form.department,
+  email: form.email,
+  role: 'employee',
+  phone: `+91 ${digits.slice(0,5)} ${digits.slice(5)}`,
+  skills: form.skills,
+  assigned: 0,
+  completed: 0,
+  status: 'Active',
+  avatar: avatarUrl,
+  joinDate: new Date().toLocaleDateString()
+};
     const old = JSON.parse(localStorage.getItem('myNewMembers') || '[]');
     localStorage.setItem('myNewMembers', JSON.stringify([...old, newMember]));
     setShowSuccess(true);

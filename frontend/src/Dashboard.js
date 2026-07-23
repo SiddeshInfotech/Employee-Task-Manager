@@ -20,7 +20,7 @@ function Dashboard() {
     description: '',
     status: 'pending',
     priority: 'high',
-    due_date: '2026-07-20T18:00:00Z',
+    due_date: '',
     assigned_to_id: ''
   });
   const [users, setUsers] = useState([]);
@@ -62,12 +62,14 @@ function Dashboard() {
       // POST /tasks/ Bearer json
       await api.post('/tasks/', taskForm);
       showToast('Task added successfully!');
+      setTaskForm({title: '', description: '', status: 'pending', priority: 'high', due_date: '',assigned_to_id: ''});
       setShowAddTaskModal(false);
       // Refresh summary
       const res = await api.get('/dashboard/summary');
       if (res.data) setSummary(res.data);
     } catch (err) {
       console.error(err);
+       showToast('Failed to create task', 'error');
     }
   };
 
@@ -506,7 +508,7 @@ function Dashboard() {
                 <input
                   type="datetime-local"
                   required
-                  value={taskForm.due_date.slice(0, 16)}
+                 value={taskForm.due_date ? taskForm.due_date.slice(0,16) : ''}
                   onChange={(e) => setTaskForm({ ...taskForm, due_date: new Date(e.target.value).toISOString() })}
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-500"
                 />
