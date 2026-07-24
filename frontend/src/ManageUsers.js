@@ -9,12 +9,12 @@ function ManageUsers() {
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   useEffect(() => {
-  const newUsers = JSON.parse(
-    localStorage.getItem("myNewMembers") || "[]"
-  );
+    const newUsers = JSON.parse(
+      localStorage.getItem("myNewMembers") || "[]"
+    );
 
-  setUsers((prev) => [...prev, ...newUsers]);
-}, []);
+    setUsers((prev) => [...prev, ...newUsers]);
+  }, []);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
   const [editUser, setEditUser] = useState(null);
@@ -22,7 +22,7 @@ function ManageUsers() {
   const localRole = localStorage.getItem('role') || 'employee';
 
   useEffect(() => {
-    if (localRole !== 'admin') {
+    if (localRole?.toLowerCase() !== 'admin') {
       showToast('Access denied', 'error');
       navigate('/dashboard');
       return;
@@ -35,14 +35,14 @@ function ManageUsers() {
           setUsers(res.data);
         }
       } catch (err) {
-  console.error('Failed to load users from API.', err);
+        console.error('Failed to load users from API.', err);
 
-  const localUsers = JSON.parse(
-    localStorage.getItem("myNewMembers") || "[]"
-  );
+        const localUsers = JSON.parse(
+          localStorage.getItem("myNewMembers") || "[]"
+        );
 
-  setUsers(localUsers);
-}
+        setUsers(localUsers);
+      }
     };
     fetchUsers();
   }, [localRole, navigate]);
@@ -54,22 +54,22 @@ function ManageUsers() {
       showToast('User deleted successfully');
       const updatedUsers = users.filter((u) => u.id !== id);
 
-setUsers(updatedUsers);
+      setUsers(updatedUsers);
 
-localStorage.setItem(
-  "myNewMembers",
-  JSON.stringify(updatedUsers)
-);
+      localStorage.setItem(
+        "myNewMembers",
+        JSON.stringify(updatedUsers)
+      );
     } catch (err) {
       console.error(err);
       const updatedUsers = users.filter((u) => u.id !== id);
 
-setUsers(updatedUsers);
+      setUsers(updatedUsers);
 
-localStorage.setItem(
-  "myNewMembers",
-  JSON.stringify(updatedUsers)
-);
+      localStorage.setItem(
+        "myNewMembers",
+        JSON.stringify(updatedUsers)
+      );
       showToast('User deleted successfully');
     }
   };
@@ -84,15 +84,15 @@ localStorage.setItem(
       });
       showToast('User updated');
       const updatedUsers = users.map((u) =>
-  u.id === editUser.id ? editUser : u
-);
+        u.id === editUser.id ? editUser : u
+      );
 
-setUsers(updatedUsers);
+      setUsers(updatedUsers);
 
-localStorage.setItem(
-  "myNewMembers",
-  JSON.stringify(updatedUsers)
-);
+      localStorage.setItem(
+        "myNewMembers",
+        JSON.stringify(updatedUsers)
+      );
       setEditUser(null);
     } catch (err) {
       console.error(err);
@@ -120,15 +120,15 @@ localStorage.setItem(
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-12 flex flex-col gap-6">
-        
+
         {/* Header Toolbar */}
         <div className="bg-[#0f172a]/60 border border-slate-800 p-6 rounded-2xl backdrop-blur-md shadow-xl flex items-center justify-between">
           <div>
             <h2 className="text-3xl font-bold text-white">Manage Users</h2>
             <p className="text-sm text-slate-300 mt-1">Admin configuration dashboard for members and credentials</p>
           </div>
-          
-          <Link to="/add member" className="no-underline">
+
+          <Link to="/add-member" className="no-underline">
             <button className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/25">
               <UserPlus className="w-4.5 h-4.5" />
               Add Member

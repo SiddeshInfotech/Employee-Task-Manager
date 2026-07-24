@@ -8,6 +8,7 @@ function DueDate() {
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState(26);
   const [tasks, setTasks] = useState([]);
+  const role = localStorage.getItem('role') || 'employee';
   const [loading, setLoading] = useState(false);
 
   // Top banner values (counts)
@@ -40,10 +41,10 @@ function DueDate() {
         const res = await api.get('/tasks/?skip=0&limit=100');
         if (res.data && res.data.length > 0) {
           setTasks(res.data);
-          
+
           // Classify tasks
           const now = new Date();
-          now.setHours(0,0,0,0);
+          now.setHours(0, 0, 0, 0);
 
           const upcomingList = [];
           const overdueList = [];
@@ -52,9 +53,9 @@ function DueDate() {
           res.data.forEach(t => {
             const taskDate = t.due_date ? new Date(t.due_date) : null;
             if (taskDate) {
-              taskDate.setHours(0,0,0,0);
+              taskDate.setHours(0, 0, 0, 0);
               const formattedDate = new Date(t.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-              
+
               const item = {
                 id: t.id,
                 name: t.title,
@@ -117,7 +118,7 @@ function DueDate() {
 
       {/* Main Content */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-12 flex flex-col gap-6">
-        
+
         {/* Due Date Header */}
         <div className="bg-[#0f172a]/60 border border-slate-800 p-6 rounded-2xl backdrop-blur-md shadow-xl text-center">
           <h2 className="text-3xl font-bold text-white">Due Date Reminder Page</h2>
@@ -138,7 +139,7 @@ function DueDate() {
 
         {/* Due Date Layout Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start mt-4">
-          
+
           {/* Column 1: Upcoming */}
           <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl backdrop-blur-md">
             <div className="bg-blue-600 text-white font-bold text-sm px-4 py-2.5 rounded-xl text-center mb-4 shadow">
@@ -211,11 +212,10 @@ function DueDate() {
                 <button
                   key={date}
                   onClick={() => setSelectedDate(date)}
-                  className={`w-7.5 h-7.5 rounded-full flex items-center justify-center font-bold transition-all text-xs mx-auto ${
-                    selectedDate === date
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
-                      : 'hover:bg-slate-100 text-slate-700'
-                  }`}
+                  className={`w-7.5 h-7.5 rounded-full flex items-center justify-center font-bold transition-all text-xs mx-auto ${selectedDate === date
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
+                    : 'hover:bg-slate-100 text-slate-700'
+                    }`}
                 >
                   {date}
                 </button>
@@ -236,15 +236,17 @@ function DueDate() {
         </div>
 
         {/* Action Button */}
-        <div className="flex justify-center mt-6">
-          <button
-            onClick={handleSendReminder}
-            className="flex items-center gap-2 px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/25 hover:scale-102"
-          >
-            <Bell className="w-4.5 h-4.5" />
-            Send Reminder
-          </button>
-        </div>
+        {role === 'admin' && (
+          <div className="flex justify-center mt-6">
+            <button
+              onClick={handleSendReminder}
+              className="flex items-center gap-2 px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/25 hover:scale-102"
+            >
+              <Bell className="w-4.5 h-4.5" />
+              Send Reminder
+            </button>
+          </div>
+        )}
       </main>
 
       {/* Footer */}

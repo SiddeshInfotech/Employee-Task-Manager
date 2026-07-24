@@ -18,39 +18,72 @@ function CreateTask() {
   const role = localStorage.getItem('role') || 'employee';
 
   useEffect(() => {
+    if (role !== 'admin') {
+      showToast('Only admins can create tasks');
+      navigate('/my-task');
+      return;
+    }
+
     const fetchUsers = async () => {
-      if (role === 'admin') {
-        try {
-          const res = await api.get('/users/');
-          if (res.data) setUsers(res.data);
-        } catch (err) {
-          console.error('Failed to load users for task assignment', err);
-        }
+      try {
+        const res = await api.get('/users/');
+        if (res.data) setUsers(res.data);
+      } catch (err) {
+        console.error('Failed to load users for task assignment', err);
       }
     };
+
     fetchUsers();
-  }, [role]);
+  }, [role, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Format payload to match backend schema (task_title, task_description, employee_id, due_date)
+    const formattedDueDate = taskForm.due_date ? taskForm.due_date.split('T')[0] : null;
+    const assignedEmpId = taskForm.assigned_to_id ? Number(taskForm.assigned_to_id) : null;
+
+    const payload = {
+      task_title: taskForm.title,
+      task_description: taskForm.description,
+      employee_id: assignedEmpId,
+      due_date: formattedDueDate,
+      // Fallback fields for backwards compatibility
+      title: taskForm.title,
+      description: taskForm.description,
+      status: taskForm.status,
+      priority: taskForm.priority,
+      assigned_to_id: assignedEmpId
+    };
+
+    console.log("Submitting Create Task Payload:", payload);
+
     try {
-      // POST /tasks/ Bearer raw json
-      await api.post('/tasks/', {
-        title: taskForm.title,
-        description: taskForm.description,
-        status: taskForm.status,
-        priority: taskForm.priority,
-        due_date: new Date(taskForm.due_date).toISOString(),
-        assigned_to_id: taskForm.assigned_to_id ? Number(taskForm.assigned_to_id)
-        : null
-      });
+      const res = await api.post('/tasks/', payload);
+      console.log("Create Task API Response:", res.data);
 
       showToast('Task created successfully');
       navigate('/my-task');
     } catch (err) {
-  console.error(err);
-  showToast('Failed to create task');
-}
+      console.error("Create Task API Error:", err);
+      console.log("Error Response Data:", err.response?.data);
+      console.log("Error Status:", err.response?.status);
+
+      let errMsg = 'Failed to create task';
+      if (err.response?.data?.detail) {
+        if (typeof err.response.data.detail === 'string') {
+          errMsg = err.response.data.detail;
+        } else if (Array.isArray(err.response.data.detail)) {
+          errMsg = err.response.data.detail.map(e => `${e.loc?.slice(-1)[0] || 'field'}: ${e.msg}`).join(', ');
+        } else {
+          errMsg = JSON.stringify(err.response.data.detail);
+        }
+      } else if (err.message) {
+        errMsg = err.message;
+      }
+
+      showToast(errMsg, 'error');
+    }
   };
 
   const handleReset = () => {
@@ -71,7 +104,7 @@ function CreateTask() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12 flex flex-col gap-6">
-        
+
         {/* Header Toolbar */}
         <div className="flex items-center justify-between bg-[#0f172a]/60 border border-slate-800 p-5 rounded-2xl backdrop-blur-md shadow-xl w-full">
           <button
@@ -148,17 +181,17 @@ function CreateTask() {
               <div>
                 <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Due Date</label>
                 <input
-  type="datetime-local"
-  required
-  value={taskForm.due_date}
-  onChange={(e) =>
-    setTaskForm({
-      ...taskForm,
-      due_date: e.target.value
-    })
-  }
-  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none"
-/>
+                  type="datetime-local"
+                  required
+                  value={taskForm.due_date}
+                  onChange={(e) =>
+                    setTaskForm({
+                      ...taskForm,
+                      due_date: e.target.value
+                    })
+                  }
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none"
+                />
               </div>
 
               {/* Assign To (Only shown if Admin) */}

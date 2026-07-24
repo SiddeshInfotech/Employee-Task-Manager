@@ -94,7 +94,7 @@ function Navbar() {
     { name: 'Task Status', path: '/task-status' },
     { name: 'Due Date', path: '/due-date' },
     { name: 'Team Members', path: '/team' },
-    { name: 'Reports', path: '/reports' },
+    ...(role === 'admin' ? [{ name: 'Reports', path: '/reports' }] : []),
     ...(role === 'admin' ? [{ name: 'Manage Users', path: '/manage-users' }] : []),
     { name: 'Settings', path: '/settings' },
   ];
@@ -121,9 +121,8 @@ function Navbar() {
           <Link
             key={item.name}
             to={item.path}
-            className={`no-underline hover:text-blue-400 transition-colors ${
-              location.pathname === item.path ? 'text-blue-500 font-bold border-b-2 border-blue-500 pb-1' : 'text-slate-300'
-            }`}
+            className={`no-underline hover:text-blue-400 transition-colors ${location.pathname === item.path ? 'text-blue-500 font-bold border-b-2 border-blue-500 pb-1' : 'text-slate-300'
+              }`}
           >
             {item.name}
           </Link>
@@ -219,9 +218,8 @@ function Navbar() {
               key={item.name}
               to={item.path}
               onClick={() => setMobileMenuOpen(false)}
-              className={`no-underline hover:text-blue-400 py-2 px-3 rounded-lg transition-colors text-sm font-semibold ${
-                location.pathname === item.path ? 'bg-blue-600 text-white' : 'text-slate-300'
-              }`}
+              className={`no-underline hover:text-blue-400 py-2 px-3 rounded-lg transition-colors text-sm font-semibold ${location.pathname === item.path ? 'bg-blue-600 text-white' : 'text-slate-300'
+                }`}
             >
               {item.name}
             </Link>

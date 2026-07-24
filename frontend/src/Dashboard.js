@@ -59,17 +59,39 @@ function Dashboard() {
   const handleAddTask = async (e) => {
     e.preventDefault();
     try {
-      // POST /tasks/ Bearer json
-      await api.post('/tasks/', taskForm);
+      const formattedDueDate = taskForm.due_date ? taskForm.due_date.split('T')[0] : null;
+      const assignedEmpId = taskForm.assigned_to_id ? Number(taskForm.assigned_to_id) : null;
+
+      const payload = {
+        task_title: taskForm.title,
+        task_description: taskForm.description,
+        employee_id: assignedEmpId,
+        due_date: formattedDueDate,
+        title: taskForm.title,
+        description: taskForm.description,
+        status: taskForm.status,
+        priority: taskForm.priority,
+        assigned_to_id: assignedEmpId
+      };
+
+      await api.post('/tasks/', payload);
       showToast('Task added successfully!');
-      setTaskForm({title: '', description: '', status: 'pending', priority: 'high', due_date: '',assigned_to_id: ''});
+      setTaskForm({ title: '', description: '', status: 'pending', priority: 'high', due_date: '', assigned_to_id: '' });
       setShowAddTaskModal(false);
       // Refresh summary
       const res = await api.get('/dashboard/summary');
       if (res.data) setSummary(res.data);
     } catch (err) {
-      console.error(err);
-       showToast('Failed to create task', 'error');
+      console.error("Dashboard Add Task Error:", err);
+      let errMsg = 'Failed to create task';
+      if (err.response?.data?.detail) {
+        if (typeof err.response.data.detail === 'string') {
+          errMsg = err.response.data.detail;
+        } else if (Array.isArray(err.response.data.detail)) {
+          errMsg = err.response.data.detail.map(e => `${e.loc?.slice(-1)[0] || 'field'}: ${e.msg}`).join(', ');
+        }
+      }
+      showToast(errMsg, 'error');
     }
   };
 
@@ -145,13 +167,15 @@ function Dashboard() {
               <CheckSquare className="w-4 h-4 text-slate-900" />
               Task
             </Link>
-            <Link
-              to="/reports"
-              className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-900/15 text-slate-950 font-semibold transition-all text-sm no-underline"
-            >
-              <BarChart3 className="w-4 h-4 text-slate-900" />
-              Report
-            </Link>
+            {role === 'admin' && (
+              <Link
+                to="/reports"
+                className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-900/15 text-slate-950 font-semibold transition-all text-sm no-underline"
+              >
+                <BarChart3 className="w-4 h-4 text-slate-900" />
+                Report
+              </Link>
+            )}
             <Link
               to="/team"
               className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-900/15 text-slate-950 font-semibold transition-all text-sm no-underline"
@@ -344,9 +368,15 @@ function Dashboard() {
                 <p className="text-xs text-slate-400 mb-4">Jump directly to task pipelines or team status pages.</p>
               </div>
               <div className="flex flex-col gap-2">
-                <Link to="/manage-users" className="flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-blue-500/50 hover:bg-slate-850 transition-all text-xs font-semibold no-underline text-white">
-                  Manage Employees <ArrowRight className="w-4 h-4 text-blue-500" />
-                </Link>
+                {role === "admin" && (
+                  <Link
+                    to="/manage-users"
+                    className="flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-blue-500/50 transition-all text-xs font-semibold no-underline text-white"
+                  >
+                    Manage Employees
+                    <ArrowRight className="w-4 h-4 text-blue-500" />
+                  </Link>
+                )}
                 <Link to="/my-task" className="flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/50 hover:bg-slate-850 transition-all text-xs font-semibold no-underline text-white">
                   Manage Tasks <ArrowRight className="w-4 h-4 text-emerald-500" />
                 </Link>
@@ -412,13 +442,15 @@ function Dashboard() {
 
           {/* Action Row Buttons */}
           <div className="flex flex-wrap gap-4 mt-4">
-            <button
-              onClick={() => setShowAddTaskModal(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-[#2563eb] hover:bg-blue-750 text-white rounded-xl font-semibold shadow-lg shadow-blue-500/10 transition-all hover:scale-102"
-            >
-              <Plus className="w-5 h-5" />
-              Add Task
-            </button>
+            {role === 'admin' && (
+              <button
+                onClick={() => setShowAddTaskModal(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-[#2563eb] hover:bg-blue-700 text-white rounded-xl font-semibold"
+              >
+                <Plus className="w-5 h-5" />
+                Add Task
+              </button>
+            )}
 
             {role === 'admin' && (
               <Link to="/team" className="no-underline">
@@ -429,12 +461,14 @@ function Dashboard() {
               </Link>
             )}
 
-            <Link to="/reports" className="no-underline">
-              <button className="flex items-center gap-2 px-6 py-3 bg-[#f59e0b] hover:bg-amber-600 text-white rounded-xl font-semibold shadow-lg shadow-amber-500/10 transition-all hover:scale-102">
-                <FileText className="w-5 h-5" />
-                Generate Report
-              </button>
-            </Link>
+            {role === 'admin' && (
+              <Link to="/reports" className="no-underline">
+                <button className="flex items-center gap-2 px-6 py-3 bg-[#f59e0b] hover:bg-amber-600 text-white rounded-xl font-semibold shadow-lg shadow-amber-500/10 transition-all hover:scale-102">
+                  <FileText className="w-5 h-5" />
+                  Generate Report
+                </button>
+              </Link>
+            )}
           </div>
         </main>
 
@@ -508,7 +542,7 @@ function Dashboard() {
                 <input
                   type="datetime-local"
                   required
-                 value={taskForm.due_date ? taskForm.due_date.slice(0,16) : ''}
+                  value={taskForm.due_date ? taskForm.due_date.slice(0, 16) : ''}
                   onChange={(e) => setTaskForm({ ...taskForm, due_date: new Date(e.target.value).toISOString() })}
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-500"
                 />

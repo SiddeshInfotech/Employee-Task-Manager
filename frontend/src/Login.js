@@ -12,7 +12,7 @@ function Login() {
   const [email, setEmail] = useState('');
   const [employeeId, setEmployeeId] = useState('');
   const [password, setPassword] = useState('');
- const [role, setRole] = useState('Employee');
+  const [role, setRole] = useState('employee');
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e) => {
@@ -24,62 +24,91 @@ function Login() {
       formData.append('username', username);
       formData.append('password', password);
       const res = await api.post('/auth/login', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-      console.log("Auto Login Response:", res.data);
+      console.log("LOGIN RESPONSE:", res.data);
       if (res.data?.access_token) {
         localStorage.setItem('token', res.data.access_token);
         localStorage.setItem('username', username);
-        localStorage.setItem('role', username.toLowerCase().includes('admin') ? 'admin' : 'employee');
+
+        let userRole = res.data?.role;
+        if (!userRole) {
+          try {
+            const payload = JSON.parse(atob(res.data.access_token.split('.')[1]));
+            userRole = payload.role;
+          } catch (err) {
+            console.error("Failed to decode JWT payload:", err);
+          }
+        }
+        const finalRole = (userRole || 'employee').toLowerCase();
+        localStorage.setItem('role', finalRole);
+        console.log("Role stored successfully in localStorage:", localStorage.getItem('role'));
         showToast('Login successful!');
         navigate('/dashboard');
       } else {
-        showToast('Token not came', 'error');
+        showToast('Token not received', 'error');
       }
     } catch (err) {
-  console.error("Login Error:", err);
-  console.log(err.response?.data);
-  alert(JSON.stringify(err.response?.data || err.message));
-} finally {
-  setLoading(false);
-}
+      console.error("Login Error:", err);
+      console.log(err.response?.data);
+      alert(JSON.stringify(err.response?.data || err.message));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleRegister = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      console.log("Trying Register:", username, employeeId);
-     await api.post('/auth/register', {
-     username,
-     email,
-     employee_id: Number(employeeId),
-     password,
-     role
-   });
+      console.log("Trying Register:", username, employeeId, role);
+      const formattedRole = role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
+      await api.post('/auth/register', {
+        username,
+        email,
+        employee_id: Number(employeeId),
+        password,
+        role: formattedRole
+      });
       showToast('Registration successful!');
-      
+
       // Auto Login
       const formData = new FormData();
       formData.append('username', username);
       formData.append('password', password);
       const res = await api.post('/auth/login', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      console.log("AUTO LOGIN RESPONSE:", res.data);
+
       if (res.data?.access_token) {
         localStorage.setItem('token', res.data.access_token);
         localStorage.setItem('username', username);
-        localStorage.setItem('role', role);
+
+        let userRole = res.data?.role;
+        if (!userRole) {
+          try {
+            const payload = JSON.parse(atob(res.data.access_token.split('.')[1]));
+            userRole = payload.role;
+          } catch (err) {
+            console.error("Failed to decode JWT payload:", err);
+          }
+        }
+        const finalRole = (userRole || role || 'employee').toLowerCase();
+        localStorage.setItem('role', finalRole);
+        console.log("Role stored successfully in localStorage after register:", localStorage.getItem('role'));
+      } else {
+        localStorage.setItem('role', role.toLowerCase());
       }
       navigate('/dashboard');
-      
+
     } catch (err) {
-  console.log("FULL ERROR:", err);
-  console.log("RESPONSE:", err.response);
-  console.log("DATA:", err.response?.data);
-  console.log("MESSAGE:", err.message);
+      console.log("FULL ERROR:", err);
+      console.log("RESPONSE:", err.response);
+      console.log("DATA:", err.response?.data);
+      console.log("MESSAGE:", err.message);
 
-  alert(JSON.stringify(err.response?.data || err.message));
+      alert(JSON.stringify(err.response?.data || err.message));
 
-}finally {
-    setLoading(false);
-  }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -93,25 +122,25 @@ function Login() {
       </header>
 
       <main className="flex-1 flex lg:flex-row w-full">
-       <div className="hidden lg:flex w-1/2">
-         <div className="w-full h-full bg-white/75 p-12 flex flex-col justify-center">
-            <h2 className="text-4xl font-extrabold text-slate-900 mb-3">Welcome Back! <br/><span className="text-blue-600">Let's Get Things Done.</span></h2>
+        <div className="hidden lg:flex w-1/2">
+          <div className="w-full h-full bg-white/75 p-12 flex flex-col justify-center">
+            <h2 className="text-4xl font-extrabold text-slate-900 mb-3">Welcome Back! <br /><span className="text-blue-600">Let's Get Things Done.</span></h2>
             <p className="text-slate-600 mb-8 text-sm">Login to your account and continue managing your tasks, team and deadlines.</p>
             <div className="space-y-4">
-              <div className="flex gap-3"><div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center"><CheckCircle className="w-4 h-4 text-blue-600"/></div><div><p className="font-bold text-slate-900 text-sm">Task Management</p><p className="text-xs text-slate-500">Create and track tasks</p></div></div>
-              <div className="flex gap-3"><div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center"><CheckCircle className="w-4 h-4 text-green-600"/></div><div><p className="font-bold text-slate-900 text-sm">Team Collaboration</p><p className="text-xs text-slate-500">Work together seamlessly</p></div></div>
+              <div className="flex gap-3"><div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center"><CheckCircle className="w-4 h-4 text-blue-600" /></div><div><p className="font-bold text-slate-900 text-sm">Task Management</p><p className="text-xs text-slate-500">Create and track tasks</p></div></div>
+              <div className="flex gap-3"><div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center"><CheckCircle className="w-4 h-4 text-green-600" /></div><div><p className="font-bold text-slate-900 text-sm">Team Collaboration</p><p className="text-xs text-slate-500">Work together seamlessly</p></div></div>
             </div>
           </div>
         </div>
 
-        
+
         <div className="w-full lg:w-1/2 flex items-center justify-center">
-         <motion.div
-  initial={{ opacity: 0, y: 10 }}
-  animate={{ opacity: 1, y: 0 }}
-  className="w-[90%] max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 p-8">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-[90%] max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 p-8">
             <div className="text-center mb-6">
-              <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-3">{isLogin ? <LogIn className="w-6 h-6 text-blue-600"/> : <UserPlus className="w-6 h-6 text-blue-600"/>}</div>
+              <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-3">{isLogin ? <LogIn className="w-6 h-6 text-blue-600" /> : <UserPlus className="w-6 h-6 text-blue-600" />}</div>
               <h3 className="text-2xl font-bold text-slate-900">{isLogin ? 'Login to Your Account' : 'Create New Account'}</h3>
               <p className="text-xs text-slate-500 mt-1">{isLogin ? 'Enter your credentials' : 'Join today'}</p>
             </div>
@@ -120,7 +149,7 @@ function Login() {
               {!isLogin && (
                 <div>
                   <label className="text-xs font-semibold text-slate-600 uppercase mb-1 block">
-                   Employee ID
+                    Employee ID
                   </label>
                   <input
                     type="number"
@@ -128,56 +157,56 @@ function Login() {
                     value={employeeId}
                     onChange={(e) => setEmployeeId(e.target.value)}
                     placeholder="Enter Employee ID"
-                    className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-blue-500"/>
+                    className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-blue-500" />
                 </div>
               )}
 
               <div>
                 <label className="text-xs font-semibold text-slate-600 uppercase mb-1 block">
-                 Username
+                  Username
                 </label>
 
                 <input type="text" required value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Enter Username"
-                 className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-slate-900" />
+                  className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-slate-900" />
               </div>
 
               {!isLogin && (
                 <div>
                   <label className="text-xs font-semibold text-slate-600 uppercase mb-1 block">Email Address</label>
-                  <div className="relative"><Mail className="absolute left-3 top-3.5 w-4 h-4 text-slate-400"/><input type="email" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="Enter email" className="w-full pl-10 pr-4 py-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-blue-500" /></div>
+                  <div className="relative"><Mail className="absolute left-3 top-3.5 w-4 h-4 text-slate-400" /><input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="Enter email" className="w-full pl-10 pr-4 py-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-blue-500" /></div>
                 </div>
               )}
               <div>
                 <label className="text-xs font-semibold text-slate-600 uppercase mb-1 block">Password</label>
-                <div className="relative"><Lock className="absolute left-3 top-3.5 w-4 h-4 text-slate-400"/>
-                <input type={showPassword ? 'text' : 'password'} required value={password} onChange={e=>setPassword(e.target.value)} placeholder="Enter password" className="w-full pl-10 pr-10 py-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-blue-500" />
-                <button type="button" onClick={()=>setShowPassword(!showPassword)} className="absolute right-3 top-3 text-xs text-slate-500">{showPassword?'Hide':'Show'}</button></div>
+                <div className="relative"><Lock className="absolute left-3 top-3.5 w-4 h-4 text-slate-400" />
+                  <input type={showPassword ? 'text' : 'password'} required value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter password" className="w-full pl-10 pr-10 py-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-blue-500" />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-3 text-xs text-slate-500">{showPassword ? 'Hide' : 'Show'}</button></div>
               </div>
               {!isLogin && (
-              <div>
-                <label className="text-xs font-semibold text-slate-600 uppercase mb-1 block">Role</label>
-                <select value={role}onChange={e=>setRole(e.target.value)}className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
-               <option value="Employee" className="text-slate-900 bg-white">
-                Employee
-               </option>
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 uppercase mb-1 block">Role</label>
+                  <select value={role} onChange={e => setRole(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+                    <option value="employee" className="text-slate-900 bg-white">
+                      Employee
+                    </option>
 
-              <option value="Admin" className="text-slate-900 bg-white">
-                Admin
-              </option>
-                </select>
-              </div>
+                    <option value="admin" className="text-slate-900 bg-white">
+                      Admin
+                    </option>
+                  </select>
+                </div>
               )}
 
               {isLogin && (
                 <div className="flex items-center justify-between text-xs mt-1">
                   <label className="flex items-center gap-2 text-slate-600">
-                    <input type="checkbox" className="rounded"/> Remember Me</label>
+                    <input type="checkbox" className="rounded" /> Remember Me</label>
                   <Link to="/forgot-password" className="font-semibold text-blue-600">Forget Password ?</Link>
                 </div>
               )}
 
               <button type="submit" disabled={loading} className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl mt-2 shadow-md flex items-center justify-center gap-2">
-                {loading? 'Please wait...' : isLogin? 'Login' : 'Register'} <ArrowRight className="w-4 h-4"/>
+                {loading ? 'Please wait...' : isLogin ? 'Login' : 'Register'} <ArrowRight className="w-4 h-4" />
               </button>
             </form>
 

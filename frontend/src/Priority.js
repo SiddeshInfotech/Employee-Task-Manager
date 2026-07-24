@@ -6,6 +6,7 @@ import api, { showToast } from './axios';
 function Priority() {
   const [filter, setFilter] = useState('All');
   const [sortByProperty, setSortByProperty] = useState(false);
+  const role = localStorage.getItem('role') || 'employee';
   const [tasks, setTasks] = useState({
     high: [
       { id: 1, name: 'Critical Bug Fix', due: 'May 24', status: 'In Progress' },
@@ -88,7 +89,7 @@ function Priority() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-12 flex flex-col gap-6">
-        
+
         {/* Header Title Card */}
         <div className="bg-[#0f172a]/60 border border-slate-800 p-6 rounded-2xl backdrop-blur-md shadow-xl text-center">
           <h2 className="text-3xl font-bold text-white">Priority Management</h2>
@@ -109,9 +110,8 @@ function Priority() {
 
           <button
             onClick={() => setSortByProperty(!sortByProperty)}
-            className={`px-4 py-2 border rounded-xl text-xs font-semibold transition-all ${
-              sortByProperty ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-900 border-slate-850 text-slate-300'
-            }`}
+            className={`px-4 py-2 border rounded-xl text-xs font-semibold transition-all ${sortByProperty ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-900 border-slate-850 text-slate-300'
+              }`}
           >
             Sort By Property
           </button>
@@ -187,14 +187,16 @@ function Priority() {
         </div>
 
         {/* Update Button */}
-        <div className="flex justify-center mt-8">
-          <button
-            onClick={handleUpdatePriority}
-            className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/25"
-          >
-            Update Priority
-          </button>
-        </div>
+        {role === 'admin' && (
+          <div className="flex justify-center mt-8">
+            <button
+              onClick={handleUpdatePriority}
+              className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/25"
+            >
+              Update Priority
+            </button>
+          </div>
+        )}
       </main>
 
       {/* Footer */}

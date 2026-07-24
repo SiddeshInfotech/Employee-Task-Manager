@@ -19,27 +19,27 @@ function MyTask() {
       const res = await api.get('/tasks/?skip=0&limit=100');
       if (res.data) {
         const mapped = res.data.map(t => ({
-          id: t.id,
-          task: t.title,
+          id: t.task_id || t.id,
+          task: t.task_title || t.title || 'Untitled Task',
           due: t.due_date ? new Date(t.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No Due Date',
           status: t.status
-  ? (t.status === 'in_progress'
-      ? 'In Progress'
-      : t.status.charAt(0).toUpperCase() + t.status.slice(1))
-  : 'Pending',
+            ? (t.status === 'in_progress'
+              ? 'In Progress'
+              : t.status.charAt(0).toUpperCase() + t.status.slice(1))
+            : 'Pending',
 
-priority: t.priority
-  ? t.priority.charAt(0).toUpperCase() + t.priority.slice(1)
-  : 'Low',
+          priority: t.priority
+            ? t.priority.charAt(0).toUpperCase() + t.priority.slice(1)
+            : 'Low',
           progress: t.status === 'completed' ? 100 : t.status === 'in_progress' ? 60 : 20,
-          assignee: t.assigned_to || 'Assigned'
+          assignee: t.assigned_to || t.employee_id || 'Assigned'
         }));
         setTasks(mapped);
       }
     } catch (err) {
-   console.error(err);
-   showToast("Failed to fetch tasks", "error");
-}
+      console.error(err);
+      showToast("Failed to fetch tasks", "error");
+    }
   };
 
   useEffect(() => {
@@ -56,9 +56,9 @@ priority: t.priority
       showToast('Task deleted successfully');
       fetchTasks();
     } catch (err) {
-   console.error(err);
-   showToast("Failed to delete task", "error");
-}
+      console.error(err);
+      showToast("Failed to delete task", "error");
+    }
   };
 
   const getStatusStyle = (status) => {
@@ -85,9 +85,13 @@ priority: t.priority
 
   // Filter & Sort Logic
   let filtered = tasks.filter(t => {
-    const matchesSearch = t.task.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'All' || t.status.toLowerCase().replace(' ', '_') === statusFilter.toLowerCase().replace(' ', '_');
-    const matchesPriority = priorityFilter === 'All' || t.priority.toLowerCase() === priorityFilter.toLowerCase();
+    const taskName = (t.task || '').toLowerCase();
+    const taskStatus = (t.status || 'Pending').toLowerCase().replace(' ', '_');
+    const taskPriority = (t.priority || 'Low').toLowerCase();
+
+    const matchesSearch = taskName.includes(search.toLowerCase());
+    const matchesStatus = statusFilter === 'All' || taskStatus === statusFilter.toLowerCase().replace(' ', '_');
+    const matchesPriority = priorityFilter === 'All' || taskPriority === priorityFilter.toLowerCase();
     return matchesSearch && matchesStatus && matchesPriority;
   });
 
@@ -102,21 +106,23 @@ priority: t.priority
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-12 flex flex-col gap-6">
-        
+
         {/* Header Title Card */}
         <div className="bg-[#0f172a]/60 border border-slate-800 p-6 rounded-2xl backdrop-blur-md shadow-xl flex items-center justify-between">
           <div>
             <h2 className="text-3xl font-bold text-white">My Task</h2>
             <p className="text-sm text-slate-300 mt-1">Manage and track your assigned task pipelines</p>
           </div>
-          
-          <button
-            onClick={() => navigate('/create-task')}
-            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/25"
-          >
-            <Plus className="w-4.5 h-4.5" />
-            Create Task
-          </button>
+
+          {role === 'admin' && (
+            <button
+              onClick={() => navigate('/create-task')}
+              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/25"
+            >
+              <Plus className="w-4.5 h-4.5" />
+              Create Task
+            </button>
+          )}
         </div>
 
         {/* Filters Panel */}
@@ -162,9 +168,8 @@ priority: t.priority
             {/* Sort checkbox */}
             <button
               onClick={() => setSortByDueDate(!sortByDueDate)}
-              className={`px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all ${
-                sortByDueDate ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-900 text-slate-300 border-slate-800 hover:text-white'
-              }`}
+              className={`px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all ${sortByDueDate ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-900 text-slate-300 border-slate-800 hover:text-white'
+                }`}
             >
               Sort Due Date
             </button>
