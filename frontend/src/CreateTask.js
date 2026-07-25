@@ -43,17 +43,16 @@ function CreateTask() {
     const formattedDueDate = taskForm.due_date ? taskForm.due_date.split('T')[0] : null;
     const assignedEmpId = taskForm.assigned_to_id ? Number(taskForm.assigned_to_id) : null;
 
+    const statusMap = { pending: 1, in_progress: 2, completed: 3, on_hold: 4 };
+    const priorityMap = { high: 1, medium: 2, low: 3 };
+
     const payload = {
       task_title: taskForm.title,
       task_description: taskForm.description,
       employee_id: assignedEmpId,
-      due_date: formattedDueDate,
-      // Fallback fields for backwards compatibility
-      title: taskForm.title,
-      description: taskForm.description,
-      status: taskForm.status,
-      priority: taskForm.priority,
-      assigned_to_id: assignedEmpId
+      status_id: statusMap[taskForm.status] || 1,
+      priority_id: priorityMap[taskForm.priority] || 1,
+      due_date: formattedDueDate
     };
 
     console.log("Submitting Create Task Payload:", payload);
@@ -160,6 +159,7 @@ function CreateTask() {
                   <option value="pending">Pending</option>
                   <option value="in_progress">In Progress</option>
                   <option value="completed">Completed</option>
+                  <option value="on_hold">On Hold</option>
                 </select>
               </div>
 

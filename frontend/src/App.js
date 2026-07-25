@@ -20,6 +20,11 @@ import ManageUsers from './ManageUsers';
 import AddMember from './AddMember';
 import './App.css';
 
+const ProtectedRoute = ({ children }) => {
+  const token = localStorage.getItem('token');
+  return token ? children : <Navigate to="/login" replace />;
+};
+
 const WildcardRedirect = () => {
   const token = localStorage.getItem('token');
   return token ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />;
@@ -40,22 +45,23 @@ function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/team" element={<TeamMembers />} />
-          <Route path="/settings" element={<Settings />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/due-date" element={<DueDate />} />
-          <Route path="/notifications" element={<NotificationsPage />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/my-task" element={<MyTask />} />
-          <Route path="/priority" element={<Priority />} />
-          <Route path="/task-status" element={<TaskStatus />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/create-task" element={<CreateTask />} />
-          <Route path="/tasks/:id" element={<TaskDetail />} />
-          <Route path="/manage-users" element={<ManageUsers />} />
-          <Route path="/add-member" element={<AddMember />} />
+          
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/team" element={<ProtectedRoute><TeamMembers /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+          <Route path="/due-date" element={<ProtectedRoute><DueDate /></ProtectedRoute>} />
+          <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/my-task" element={<ProtectedRoute><MyTask /></ProtectedRoute>} />
+          <Route path="/priority" element={<ProtectedRoute><Priority /></ProtectedRoute>} />
+          <Route path="/task-status" element={<ProtectedRoute><TaskStatus /></ProtectedRoute>} />
+          <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+          <Route path="/create-task" element={<ProtectedRoute><CreateTask /></ProtectedRoute>} />
+          <Route path="/tasks/:id" element={<ProtectedRoute><TaskDetail /></ProtectedRoute>} />
+          <Route path="/manage-users" element={<ProtectedRoute><ManageUsers /></ProtectedRoute>} />
+          <Route path="/add-member" element={<ProtectedRoute><AddMember /></ProtectedRoute>} />
           <Route path="*" element={<WildcardRedirect />} />
         </Routes>
       </div>

@@ -30,16 +30,26 @@ function TaskDetail() {
 
   const fetchTaskDetails = async () => {
     setLoading(true);
+    const statusReverseMap = { 1: 'pending', 2: 'in_progress', 3: 'completed', 4: 'on_hold' };
+    const priorityReverseMap = { 1: 'high', 2: 'medium', 3: 'low' };
+
     try {
       const res = await api.get(`/tasks/${id}`);
       if (res.data) {
-        setTask(res.data);
+        const mappedTask = {
+          ...res.data,
+          title: res.data.task_title || res.data.title || 'Untitled Task',
+          description: res.data.task_description || res.data.description || '',
+          status: typeof res.data.status_id === 'number' ? (statusReverseMap[res.data.status_id] || 'pending') : (res.data.status || 'pending'),
+          priority: typeof res.data.priority_id === 'number' ? (priorityReverseMap[res.data.priority_id] || 'high') : (res.data.priority || 'high')
+        };
+        setTask(mappedTask);
         setEditForm({
-          title: res.data.title,
-          description: res.data.description,
-          status: res.data.status,
-          priority: res.data.priority,
-          due_date: res.data.due_date ? res.data.due_date.slice(0, 16) : ''
+          title: mappedTask.title,
+          description: mappedTask.description,
+          status: mappedTask.status,
+          priority: mappedTask.priority,
+          due_date: res.data.due_date ? String(res.data.due_date).slice(0, 10) : ''
         });
       }
     } catch (err) {
@@ -66,19 +76,22 @@ function TaskDetail() {
 
   const handleUpdate = async (e) => {
     e.preventDefault();
+    const statusMap = { pending: 1, in_progress: 2, completed: 3, on_hold: 4 };
+    const priorityMap = { high: 1, medium: 2, low: 3 };
+
     try {
-      // Employees are restricted to only updating status
       if (role !== 'admin') {
-        const statusOnlyUpdate = { status: editForm.status };
+        const statusOnlyUpdate = { status_id: statusMap[editForm.status] || 1 };
         await api.put(`/tasks/${id}`, statusOnlyUpdate);
         showToast('Status updated successfully');
       } else {
+        const formattedDueDate = editForm.due_date ? editForm.due_date.split('T')[0] : null;
         await api.put(`/tasks/${id}`, {
-          title: editForm.title,
-          description: editForm.description,
-          status: editForm.status,
-          priority: editForm.priority,
-          due_date: new Date(editForm.due_date).toISOString()
+          task_title: editForm.title,
+          task_description: editForm.description,
+          status_id: statusMap[editForm.status] || 1,
+          priority_id: priorityMap[editForm.priority] || 1,
+          due_date: formattedDueDate
         });
         showToast('Task updated successfully');
       }
@@ -86,8 +99,7 @@ function TaskDetail() {
       fetchTaskDetails();
     } catch (err) {
       console.error(err);
-      // Fallback
-      showToast('Failed to update task');
+      showToast('Failed to update task', 'error');
       setEditing(false);
     }
   };
@@ -213,6 +225,7 @@ function TaskDetail() {
                     <option value="pending">Pending</option>
                     <option value="in_progress">In Progress</option>
                     <option value="completed">Completed</option>
+                    <option value="on_hold">On Hold</option>
                   </select>
                 ) : (
                   <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-600 uppercase tracking-wider block w-max mt-1">

@@ -48,7 +48,17 @@ function AddMember() {
       completed_tasks: 0
     };
 
-    try { await API.post('/team-members/', payload); } catch (e) { console.log("API fail", e); }
+    try {
+      await API.post('/auth/register', {
+        username: form.fullName.trim().replace(/\s+/g, '_').toLowerCase(),
+        email: form.email,
+        employee_id: Date.now() % 10000,
+        password: 'Password123!',
+        role: 'Employee'
+      });
+    } catch (e) {
+      console.log("Register API fallback", e);
+    }
 
     const newMember = {
       id: Date.now(),

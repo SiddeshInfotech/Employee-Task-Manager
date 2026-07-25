@@ -26,18 +26,22 @@ function Priority() {
   });
 
   const fetchTasks = async () => {
+    const statusReverseMap = { 1: 'Pending', 2: 'In Progress', 3: 'Completed' };
+    const priorityReverseMap = { 1: 'high', 2: 'medium', 3: 'low' };
+
     try {
       const res = await api.get('/tasks/?skip=0&limit=100');
       if (res.data && res.data.length > 0) {
         const grouped = { high: [], medium: [], low: [] };
         res.data.forEach(t => {
+          const statusText = typeof t.status_id === 'number' ? (statusReverseMap[t.status_id] || 'Pending') : (t.status || 'Pending');
           const item = {
-            id: t.id,
-            name: t.title,
+            id: t.task_id || t.id,
+            name: t.task_title || t.title || 'Untitled Task',
             due: t.due_date ? new Date(t.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'No Date',
-            status: t.status === 'in_progress' ? 'In Progress' : t.status.charAt(0).toUpperCase() + t.status.slice(1)
+            status: statusText
           };
-          const p = t.priority.toLowerCase();
+          const p = (typeof t.priority_id === 'number' ? (priorityReverseMap[t.priority_id] || 'low') : (t.priority || 'low')).toLowerCase();
           if (p === 'high') grouped.high.push(item);
           else if (p === 'medium') grouped.medium.push(item);
           else grouped.low.push(item);
@@ -61,13 +65,14 @@ function Priority() {
       showToast('Invalid priority entered.', 'error');
       return;
     }
+    const priorityMap = { high: 1, medium: 2, low: 3 };
     try {
-      await api.put(`/tasks/${taskId}`, { priority: newPriority.toLowerCase() });
+      await api.put(`/tasks/${taskId}`, { priority_id: priorityMap[newPriority.toLowerCase()] });
       showToast('Priority updated successfully');
       fetchTasks();
     } catch (err) {
       console.error(err);
-      showToast('Priority updated successfully');
+      showToast('Failed to update priority', 'error');
     }
   };
 

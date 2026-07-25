@@ -29,21 +29,24 @@ function TaskStatus() {
   const role = localStorage.getItem('role') || 'employee';
 
   const fetchTasks = async () => {
+    const statusReverseMap = { 1: 'pending', 2: 'inprogress', 3: 'completed', 4: 'onhold' };
+
     try {
       const res = await api.get('/tasks/?skip=0&limit=100');
       if (res.data && res.data.length > 0) {
         const grouped = { pending: [], inProgress: [], completed: [], onHold: [] };
         res.data.forEach(t => {
+          const statusKey = typeof t.status_id === 'number' ? (statusReverseMap[t.status_id] || 'pending') : (t.status || 'pending').toLowerCase().replace(' ', '').replace('_', '');
+          const statusDisplay = statusKey === 'inprogress' ? 'In Progress' : statusKey === 'onhold' ? 'On Hold' : statusKey.charAt(0).toUpperCase() + statusKey.slice(1);
           const item = {
-            id: t.id,
-            name: t.title,
+            id: t.task_id || t.id,
+            name: t.task_title || t.title || 'Untitled Task',
             due: t.due_date ? new Date(t.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'No Date',
-            status: t.status === 'in_progress' ? 'In Progress' : t.status.charAt(0).toUpperCase() + t.status.slice(1)
+            status: statusDisplay
           };
-          const status = t.status.toLowerCase().replace(' ', '');
-          if (status === 'pending') grouped.pending.push(item);
-          else if (status === 'inprogress') grouped.inProgress.push(item);
-          else if (status === 'completed') grouped.completed.push(item);
+          if (statusKey === 'pending') grouped.pending.push(item);
+          else if (statusKey === 'inprogress') grouped.inProgress.push(item);
+          else if (statusKey === 'completed') grouped.completed.push(item);
           else grouped.onHold.push(item);
         });
         setTasks(grouped);
@@ -63,15 +66,17 @@ function TaskStatus() {
     const newStatus = prompt('Enter new status (pending, in_progress, completed, on_hold):');
     if (!newStatus) return;
 
-    const formattedStatus = newStatus.toLowerCase().replace(' ', '_');
+    const statusMap = { pending: 1, in_progress: 2, inprogress: 2, completed: 3, on_hold: 4, onhold: 4 };
+    const formattedStatus = newStatus.toLowerCase().trim().replace(/\s+/g, '_');
+    const statusId = statusMap[formattedStatus] || 1;
 
     try {
-      await api.put(`/tasks/${taskId}`, { status: formattedStatus });
+      await api.put(`/tasks/${taskId}`, { status_id: statusId });
       showToast('Status updated successfully');
       fetchTasks();
     } catch (err) {
       console.error(err);
-      showToast('Status updated successfully');
+      showToast('Failed to update status', 'error');
     }
   };
 
@@ -83,6 +88,8 @@ function TaskStatus() {
         return 'bg-amber-100 text-amber-600';
       case 'Pending':
         return 'bg-rose-100 text-rose-600';
+      case 'On Hold':
+        return 'bg-slate-100 text-slate-600';
       default:
         return 'bg-slate-100 text-slate-600';
     }

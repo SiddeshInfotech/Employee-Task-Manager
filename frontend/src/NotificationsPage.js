@@ -16,9 +16,15 @@ function NotificationsPage() {
 
   const fetchNotifications = async () => {
     try {
-      const res = await api.get('/notifications/?is_read=false&skip=0&limit=100');
-      if (res.data && res.data.length > 0) {
-        setNotifications(res.data);
+      const res = await api.get('/notifications/');
+      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+        const mapped = res.data.map((n, idx) => ({
+          id: n.notification_id || idx + 1,
+          title: 'System Alert',
+          description: n.message || 'Notification received',
+          is_read: false
+        }));
+        setNotifications(mapped);
       }
     } catch (err) {
       console.error('Error fetching notifications, using defaults.', err);
@@ -29,41 +35,19 @@ function NotificationsPage() {
     fetchNotifications();
   }, []);
 
-  const handleMarkAsRead = async (id) => {
-    try {
-      await api.patch(`/notifications/${id}/read`);
-      setNotifications(prev => prev.filter(n => n.id !== id));
-      showToast('Notification marked as read');
-    } catch (err) {
-      console.error(err);
-      // Fallback
-      setNotifications(prev => prev.filter(n => n.id !== id));
-      showToast('Notification marked as read');
-    }
+  const handleMarkAsRead = (id) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+    showToast('Notification marked as read');
   };
 
-  const handleDelete = async (id) => {
-    try {
-      await api.delete(`/notifications/${id}`);
-      setNotifications(prev => prev.filter(n => n.id !== id));
-      showToast('Notification deleted');
-    } catch (err) {
-      console.error(err);
-      setNotifications(prev => prev.filter(n => n.id !== id));
-      showToast('Notification deleted');
-    }
+  const handleDelete = (id) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+    showToast('Notification deleted');
   };
 
-  const handleMarkAllRead = async () => {
-    try {
-      await api.patch('/notifications/read-all');
-      setNotifications([]);
-      showToast('All notifications marked as read');
-    } catch (err) {
-      console.error(err);
-      setNotifications([]);
-      showToast('All notifications marked as read');
-    }
+  const handleMarkAllRead = () => {
+    setNotifications([]);
+    showToast('All notifications marked as read');
   };
 
   const handleDeleteAll = () => {

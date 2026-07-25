@@ -104,8 +104,8 @@ function Login() {
       console.log("DATA:", err.response?.data);
       console.log("MESSAGE:", err.message);
 
-      alert(JSON.stringify(err.response?.data || err.message));
-
+      const errorMsg = err.response?.data?.detail || err.response?.data || (err.message === 'Network Error' ? 'Network Error: Please make sure the backend server is running on http://127.0.0.1:8000.' : err.message);
+      alert(typeof errorMsg === 'object' ? JSON.stringify(errorMsg) : errorMsg);
     } finally {
       setLoading(false);
     }

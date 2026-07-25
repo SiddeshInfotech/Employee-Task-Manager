@@ -1,4 +1,12 @@
 {
+  "name": "employee-task-manager",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "npm --prefix frontend start",
+    "dev": "npm --prefix frontend start",
+    "build": "npm --prefix frontend run build"
+  },
   "dependencies": {
     "axios": "^1.18.1"
   }

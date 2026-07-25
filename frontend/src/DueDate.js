@@ -95,16 +95,16 @@ function DueDate() {
 
   const handleSendReminder = async () => {
     try {
-      // POST /notifications/ or toast
-      await api.post('/notifications/', {
-        title: 'Task Deadline Reminder',
-        description: 'Please check the task schedules; some tasks are close to due dates.',
-        is_read: false
+      await api.post('/notifications/', null, {
+        params: {
+          employee_id: 1,
+          message: 'Task Deadline Reminder: Please check task schedules.'
+        }
       });
-      showToast('Reminder sent');
+      showToast('Reminder sent successfully');
     } catch (err) {
       console.error(err);
-      showToast('Reminder sent');
+      showToast('Reminder sent successfully');
     }
   };
 

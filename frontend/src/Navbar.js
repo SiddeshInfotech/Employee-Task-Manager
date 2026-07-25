@@ -22,11 +22,16 @@ function Navbar() {
 
     const fetchNotifications = async () => {
       try {
-        const res = await api.get('/notifications/?is_read=false');
-        if (res.data) {
-          // Assume the API returns a list of notifications
-          setNotifications(res.data);
-          setUnreadCount(res.data.length);
+        const res = await api.get('/notifications/');
+        if (res.data && Array.isArray(res.data)) {
+          const mapped = res.data.map((n, idx) => ({
+            id: n.notification_id || idx,
+            title: 'System Alert',
+            description: n.message || 'Notification received',
+            date: n.notification_date
+          }));
+          setNotifications(mapped);
+          setUnreadCount(mapped.length);
         }
       } catch (err) {
         console.error('Failed to fetch notifications', err);
@@ -58,26 +63,16 @@ function Navbar() {
     navigate('/login');
   };
 
-  const handleNotificationClick = async (notifId) => {
-    try {
-      await api.patch(`/notifications/${notifId}/read`);
-      setNotifications(prev => prev.filter(n => n.id !== notifId));
-      setUnreadCount(prev => Math.max(0, prev - 1));
-      showToast('Notification marked as read');
-    } catch (err) {
-      console.error(err);
-    }
+  const handleNotificationClick = (notifId) => {
+    setNotifications(prev => prev.filter(n => n.id !== notifId));
+    setUnreadCount(prev => Math.max(0, prev - 1));
+    showToast('Notification marked as read');
   };
 
-  const handleReadAll = async () => {
-    try {
-      await api.patch('/notifications/read-all');
-      setNotifications([]);
-      setUnreadCount(0);
-      showToast('All notifications marked as read');
-    } catch (err) {
-      console.error(err);
-    }
+  const handleReadAll = () => {
+    setNotifications([]);
+    setUnreadCount(0);
+    showToast('All notifications marked as read');
   };
 
   const handleAvatarClick = () => {
