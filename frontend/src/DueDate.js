@@ -57,8 +57,8 @@ function DueDate() {
               const formattedDate = new Date(t.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
               const item = {
-                id: t.id,
-                name: t.title,
+                id: t.task_id || t.id,
+                name: t.task_title || t.title || 'Untitled Task',
                 due: formattedDate,
                 assign: 'Assignee',
                 label: t.status,
@@ -166,7 +166,7 @@ function DueDate() {
             <div className="flex flex-col gap-3">
               {overdueTasks.map((t) => (
                 <div key={t.id} className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 hover:scale-102 transition-all cursor-pointer" onClick={() => navigate(`/tasks/${t.id}`)}>
-                  <h4 className="font-bold text-sm text-slate-900">{t.name}</h4>
+                  <h4 className="font-bold text-sm text-slate-900">{t.name || t.task_title || t.title || 'Untitled Task'}</h4>
                   <div className="flex items-center justify-between text-xs mt-2">
                     <span className="text-slate-500 font-medium">Due: {t.due}</span>
                     <span className="px-2 py-0.5 bg-rose-100 text-rose-600 rounded-full font-bold text-[10px] uppercase">{t.label || 'Overdue'}</span>
