@@ -143,7 +143,7 @@ function DueDate() {
           {/* Column 1: Upcoming */}
           <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl backdrop-blur-md">
             <div className="bg-blue-600 text-white font-bold text-sm px-4 py-2.5 rounded-xl text-center mb-4 shadow">
-              Upcoming Deadlines ({upcomingCount})
+              Upcoming Deadlines ({upcomingTasks.length})
             </div>
             <div className="flex flex-col gap-3">
               {upcomingTasks.map((t) => (
@@ -161,7 +161,7 @@ function DueDate() {
           {/* Column 2: Overdue */}
           <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl backdrop-blur-md">
             <div className="bg-rose-600 text-white font-bold text-sm px-4 py-2.5 rounded-xl text-center mb-4 shadow">
-              Overdue Tasks ({overdueCount})
+              Overdue Tasks ({overdueTasks.length})
             </div>
             <div className="flex flex-col gap-3">
               {overdueTasks.map((t) => (
@@ -179,7 +179,7 @@ function DueDate() {
           {/* Column 3: Today's Tasks */}
           <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl backdrop-blur-md">
             <div className="bg-emerald-600 text-white font-bold text-sm px-4 py-2.5 rounded-xl text-center mb-4 shadow">
-              Today's Tasks ({todayCount})
+              Today's Tasks ({todayTasks.length})
             </div>
             <div className="flex flex-col gap-3">
               {todayTasks.map((t) => (
