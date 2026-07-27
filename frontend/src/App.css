@@ -82,3 +82,19 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.2);
 }
+
+/* Dark Theme Settings */
+
+.dark body {
+    background-color: #020617;
+    color: #f8fafc;
+}
+
+.dark .app-bg {
+    background: #020617;
+}
+
+.dark .glass-card {
+    background: rgba(15, 23, 42, 0.7);
+    border-color: rgba(255, 255, 255, 0.1);
+}

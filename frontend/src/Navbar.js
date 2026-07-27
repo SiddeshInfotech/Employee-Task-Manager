@@ -2,9 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Bell, LogOut, Menu, X, CheckCheck, Layers } from 'lucide-react';
 import api, { showToast } from './axios';
+import { useTranslation } from 'react-i18next';
 
 function Navbar() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
@@ -82,16 +84,15 @@ function Navbar() {
   if (!token) return null; // Don't show navbar on login/landing if not authenticated
 
   const menuItems = [
-    { name: 'Home', path: '/' },
-    { name: 'Dashboard', path: '/dashboard' },
-    { name: 'My Task', path: '/my-task' },
-    { name: 'Priority', path: '/priority' },
-    { name: 'Task Status', path: '/task-status' },
-    { name: 'Due Date', path: '/due-date' },
-    { name: 'Team Members', path: '/team' },
-    ...(role === 'admin' ? [{ name: 'Reports', path: '/reports' }] : []),
-    ...(role === 'admin' ? [{ name: 'Manage Users', path: '/manage-users' }] : []),
-    { name: 'Settings', path: '/settings' },
+    { name: 'Home', key: 'home', path: '/' },
+    { name: 'Dashboard', key: 'dashboard', path: '/dashboard' },
+    { name: 'My Task', key: 'myTask', path: '/my-task' },
+    { name: 'Priority', key: 'priority', path: '/priority' },
+    { name: 'Task Status', key: 'taskStatus', path: '/task-status' },
+    { name: 'Due Date', key: 'dueDate', path: '/due-date' },
+    ...(role === 'admin' ? [{ name: 'Team Members', key: 'team', path: '/team' }] : []),
+    ...(role === 'admin' ? [{ name: 'Reports', key: 'reports', path: '/reports' }] : []),
+    { name: 'Settings', key: 'settings', path: '/settings' },
   ];
 
   return (
@@ -114,12 +115,12 @@ function Navbar() {
       <div className="hidden lg:flex items-center gap-6 text-sm font-medium">
         {menuItems.map(item => (
           <Link
-            key={item.name}
+            key={t(item.key)}
             to={item.path}
             className={`no-underline hover:text-blue-400 transition-colors ${location.pathname === item.path ? 'text-blue-500 font-bold border-b-2 border-blue-500 pb-1' : 'text-slate-300'
               }`}
           >
-            {item.name}
+            {t(item.key)}
           </Link>
         ))}
       </div>
@@ -210,13 +211,13 @@ function Navbar() {
         <div className="absolute top-16 left-0 right-0 bg-[#0f172a] border-b border-slate-800 p-4 flex flex-col gap-3 lg:hidden z-50">
           {menuItems.map(item => (
             <Link
-              key={item.name}
+              key={t(item.key)}
               to={item.path}
               onClick={() => setMobileMenuOpen(false)}
               className={`no-underline hover:text-blue-400 py-2 px-3 rounded-lg transition-colors text-sm font-semibold ${location.pathname === item.path ? 'bg-blue-600 text-white' : 'text-slate-300'
                 }`}
             >
-              {item.name}
+              {t(item.key)}
             </Link>
           ))}
         </div>

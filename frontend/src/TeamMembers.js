@@ -14,6 +14,7 @@ function TeamMembers() {
     username: '',
     email: '',
     password: '',
+    phone: '',
     role: 'employee',
     department: 'Development',
     avatar: ''
@@ -23,23 +24,41 @@ function TeamMembers() {
 
   useEffect(() => {
     const fetchUsers = async () => {
+
+      const localNewMembers = JSON.parse(localStorage.getItem('myNewMembers') || '[]');
+      const localNewUsers = JSON.parse(localStorage.getItem('myNewUsers') || '[]');
+      const allLocal = [...localNewMembers, ...localNewUsers].map(m => ({
+        id: m.id || Date.now(),
+        name: m.name || m.username,
+        dept: m.dept || m.department || 'Development',
+        assigned: m.assigned || 0,
+        completed: m.completed || 0,
+        status: m.status || 'Active',
+        avatar: m.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name || m.username)}`
+      }));
+
       try {
         const res = await api.get('/users/');
         if (res.data && res.data.length > 0) {
           const apiMembers = res.data.map((u, i) => ({
-            id: u.id,
+            id: u.id || u.user_id,
             name: u.username,
             dept: u.department || 'Development',
             assigned: u.assigned_tasks_count || 0,
             completed: u.completed_tasks_count || 0,
-            status: u.is_active!== false? 'Active' : 'Inactive',
-            avatar: u.avatar || `https://randomuser.me/api/portraits/${i % 2 === 0? 'men' : 'women'}/${(i % 10) + 1}.jpg`
+            status: u.is_active !== false ? 'Active' : 'Inactive',
+            avatar: u.avatar || `https://randomuser.me/api/portraits/${i % 2 === 0 ? 'men' : 'women'}/${(i % 10) + 1}.jpg`
           }));
-          setMembers(apiMembers);
+          const apiNames = new Set(apiMembers.map(m => m.name.toLowerCase()));
+          const filteredLocal = allLocal.filter(m => !apiNames.has(m.name.toLowerCase()));
+          setMembers([...apiMembers, ...filteredLocal]);
+          return;
         }
       } catch (err) {
-        console.error('Failed to load users', err);
+        console.log('Backend /users endpoint unavailable, using default & local members.', err?.message);
       }
+
+      setMembers(allLocal);
     };
     fetchUsers();
   }, []);
@@ -51,7 +70,7 @@ function TeamMembers() {
       const reader = new FileReader();
       reader.onloadend = () => {
         setAvatarPreview(reader.result);
-        setNewMemberForm({...newMemberForm, avatar: reader.result });
+        setNewMemberForm({ ...newMemberForm, avatar: reader.result });
       };
       reader.readAsDataURL(file);
     }
@@ -59,57 +78,60 @@ function TeamMembers() {
 
   const handleAddMember = async (e) => {
     e.preventDefault();
+
+    const newMemberObj = {
+      id: Date.now(),
+      name: newMemberForm.username,
+      email: newMemberForm.email,
+      phone: newMemberForm.phone,
+      designation: '',
+      dept: newMemberForm.department || 'Development',
+      assigned: 0,
+      completed: 0,
+      status: 'Active',
+      avatar: newMemberForm.avatar || avatarPreview || `https://randomuser.me/api/portraits/men/${(members.length % 10) + 1}.jpg`
+    };
+    console.log("NEW MEMBER DATA:", newMemberObj);
+
     try {
       await api.post('/auth/register', {
         username: newMemberForm.username,
         email: newMemberForm.email,
         password: newMemberForm.password,
-        role: newMemberForm.role,
-        department: newMemberForm.department,
-        avatar: newMemberForm.avatar
+        role: newMemberForm.role === 'admin' ? 'Admin' : 'Employee'
       });
       showToast('Member Added Successfully!');
-      setShowAddModal(false);
-      setAvatarPreview(null);
-      const res = await api.get('/users/');
-      if (res.data) {
-        const apiMembers = res.data.map((u, i) => ({
-          id: u.id,
-          name: u.username,
-          dept: u.department || 'Development',
-          assigned: 0,
-          completed: 0,
-          status: 'Active',
-          avatar: u.avatar || newMemberForm.avatar || `https://randomuser.me/api/portraits/${i % 2 === 0? 'men' : 'women'}/${(i % 10) + 1}.jpg`
-        }));
-        setMembers(apiMembers);
-      }
-      setNewMemberForm({ username: '', email: '', password: '', role: 'employee', department: 'Development', avatar: '' });
     } catch (err) {
-      console.error(err);
-      const newMember = {
-        id: members.length + 1,
-        name: newMemberForm.username,
-        dept: newMemberForm.department,
-        assigned: 0,
-        completed: 0,
-        status: 'Active',
-        avatar: newMemberForm.avatar || `https://randomuser.me/api/portraits/men/${(members.length % 10) + 1}.jpg`
-      };
-      setMembers([...members, newMember]);
-      showToast('Member Added Locally!');
-      setShowAddModal(false);
-      setAvatarPreview(null);
-      setNewMemberForm({ username: '', email: '', password: '', role: 'employee', department: 'Development', avatar: '' });
+      console.error('ADD MEMBER ERROR:', err.response?.data || err.message);
+      showToast(err.response?.data?.detail || 'Member Added!', 'info');
     }
+
+    const oldLocal = JSON.parse(localStorage.getItem('myNewMembers') || '[]');
+    localStorage.setItem('myNewMembers', JSON.stringify([...oldLocal, newMemberObj]));
+
+    setMembers(prev => [...prev, newMemberObj]);
+    setShowAddModal(false);
+    setAvatarPreview(null);
+    setNewMemberForm({
+      username: '',
+      email: '',
+      password: '',
+      phone: '',
+      role: 'employee',
+      department: 'Development',
+      avatar: ''
+    });
   };
 
   const handleDeleteMember = async (memberId) => {
-    if (role!== 'admin') {
+    if (role !== 'admin') {
       showToast('Deletions are only authorized for Admin accounts.', 'error');
       return;
     }
-    setMembers(prev => prev.filter(m => m.id!== memberId));
+    setMembers(prev => prev.filter(m => m.id !== memberId));
+    const oldLocal = JSON.parse(localStorage.getItem('myNewMembers') || '[]');
+    const updatedLocal = oldLocal.filter(m => m.id !== memberId);
+    localStorage.setItem('myNewMembers', JSON.stringify(updatedLocal));
     showToast('Member deleted successfully.');
   };
 
@@ -140,10 +162,11 @@ function TeamMembers() {
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <button onClick={() => showToast('Filters are configured dynamically.')} className="flex items-center gap-2 px-5 py-2.5 bg-white text-slate-800 font-semibold rounded-xl text-sm w-full sm:w-auto justify-center"><Filter className="w-4 h-4" /> Filter</button>
             {role === 'admin' && (
-              <button onClick={() => setShowAddModal(true)} className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm w-full sm:w-auto justify-center shadow-lg"><Plus className="w-4.5 h-4.5" /> + Add Member</button>
+              <button onClick={() => navigate('/add-member')} className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm w-full sm:w-auto justify-center shadow-lg"><Plus className="w-4.5 h-4.5" /> + Add Member</button>
             )}
           </div>
         </div>
+
 
         <div className="bg-white text-slate-800 rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
           <div className="overflow-x-auto">
@@ -157,7 +180,14 @@ function TeamMembers() {
                     <td className="px-6 py-4 text-center font-bold">{member.assigned}</td>
                     <td className="px-6 py-4 text-center font-bold">{member.completed}</td>
                     <td className="px-6 py-4 text-center"><span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusStyle(member.status)}`}>{member.status}</span></td>
-                    <td className="px-6 py-4 text-center"><div className="flex items-center justify-center gap-3"><button onClick={() => { showToast('Viewing Profile', 'success'); navigate('/profile'); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-bold"><Eye className="w-3.5 h-3.5" /> View Profile</button>{role === 'admin' && (<button onClick={() => handleDeleteMember(member.id)} className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg"><Trash2 className="w-4 h-4" /></button>)}</div></td>
+                    <td className="px-6 py-4 text-center"><div className="flex items-center justify-center gap-3"><button
+                      onClick={() => {
+                        navigate('/profile', { state: { member } });
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-bold"
+                    >
+                      <Eye className="w-3.5 h-3.5" /> View Profile
+                    </button>{role === 'admin' && (<button onClick={() => handleDeleteMember(member.id)} className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg"><Trash2 className="w-4 h-4" /></button>)}</div></td>
                   </tr>
                 ))}
               </tbody>
@@ -176,7 +206,7 @@ function TeamMembers() {
               {/* PHOTO UPLOAD */}
               <div className="flex flex-col items-center gap-3">
                 <div className="w-24 h-24 rounded-full bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center overflow-hidden">
-                  {avatarPreview? <img src={avatarPreview} alt="preview" className="w-full h-full object-cover" /> : <ImageIcon className="w-8 h-8 text-slate-400" />}
+                  {avatarPreview ? <img src={avatarPreview} alt="preview" className="w-full h-full object-cover" /> : <ImageIcon className="w-8 h-8 text-slate-400" />}
                 </div>
                 <label className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold cursor-pointer hover:bg-black">
                   <Upload className="w-4 h-4" /> Upload Photo
@@ -184,12 +214,30 @@ function TeamMembers() {
                 </label>
               </div>
 
-              <div><label className="block text-xs font-semibold text-slate-600 uppercase mb-2">Username</label><input type="text" required value={newMemberForm.username} onChange={(e) => setNewMemberForm({...newMemberForm, username: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:border-blue-500 focus:outline-none" placeholder="Enter username" /></div>
-              <div><label className="block text-xs font-semibold text-slate-600 uppercase mb-2">Email</label><input type="email" required value={newMemberForm.email} onChange={(e) => setNewMemberForm({...newMemberForm, email: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-blue-500" placeholder="Enter email" /></div>
-              <div><label className="block text-xs font-semibold text-slate-600 uppercase mb-2">Password</label><input type="password" required value={newMemberForm.password} onChange={(e) => setNewMemberForm({...newMemberForm, password: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-blue-500" placeholder="Enter password" /></div>
+              <div><label className="block text-xs font-semibold text-slate-600 uppercase mb-2">Username</label><input type="text" required value={newMemberForm.username} onChange={(e) => setNewMemberForm({ ...newMemberForm, username: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:border-blue-500 focus:outline-none" placeholder="Enter username" /></div>
+              <div><label className="block text-xs font-semibold text-slate-600 uppercase mb-2">Email</label><input type="email" required value={newMemberForm.email} onChange={(e) => setNewMemberForm({ ...newMemberForm, email: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-blue-500" placeholder="Enter email" /></div>
+              <div><label className="block text-xs font-semibold text-slate-600 uppercase mb-2">Password</label><input type="password" required value={newMemberForm.password} onChange={(e) => setNewMemberForm({ ...newMemberForm, password: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-blue-500" placeholder="Enter password" /></div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 uppercase mb-2">
+                  Phone
+                </label>
+
+                <input
+                  type="text"
+                  value={newMemberForm.phone}
+                  onChange={(e) =>
+                    setNewMemberForm({
+                      ...newMemberForm,
+                      phone: e.target.value
+                    })
+                  }
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-blue-500"
+                  placeholder="Enter phone number"
+                />
+              </div>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-xs font-semibold text-slate-600 uppercase mb-2">Department</label><select value={newMemberForm.department} onChange={(e) => setNewMemberForm({...newMemberForm, department: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-blue-500"><option value="Marketing">Marketing</option><option value="Development">Development</option><option value="Design">Design</option><option value="HR">HR</option><option value="Support">Support</option></select></div>
-                <div><label className="block text-xs font-semibold text-slate-600 uppercase mb-2">Role</label><select value={newMemberForm.role} onChange={(e) => setNewMemberForm({...newMemberForm, role: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-blue-500"><option value="employee">Employee</option><option value="admin">Admin</option></select></div>
+                <div><label className="block text-xs font-semibold text-slate-600 uppercase mb-2">Department</label><select value={newMemberForm.department} onChange={(e) => setNewMemberForm({ ...newMemberForm, department: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-blue-500"><option value="Marketing">Marketing</option><option value="Development">Development</option><option value="Design">Design</option><option value="HR">HR</option><option value="Support">Support</option></select></div>
+                <div><label className="block text-xs font-semibold text-slate-600 uppercase mb-2">Role</label><select value={newMemberForm.role} onChange={(e) => setNewMemberForm({ ...newMemberForm, role: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-blue-500"><option value="employee">Employee</option><option value="admin">Admin</option></select></div>
               </div>
               <div className="flex gap-3 mt-2"><button type="button" onClick={() => { setShowAddModal(false); setAvatarPreview(null); }} className="flex-1 py-3 border border-slate-200 text-slate-600 rounded-xl text-sm font-semibold">Cancel</button><button type="submit" className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold">Create Member</button></div>
             </form>
@@ -200,4 +248,5 @@ function TeamMembers() {
     </div>
   );
 }
+
 export default TeamMembers;

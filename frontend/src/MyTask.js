@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Trash2, Eye } from 'lucide-react';
 import Navbar from './Navbar';
 import api, { showToast } from './axios';
+import { useTranslation } from 'react-i18next';
 
 function MyTask() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [tasks, setTasks] = useState([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -18,24 +20,32 @@ function MyTask() {
     try {
       const res = await api.get('/tasks/?skip=0&limit=100');
       if (res.data) {
-        const mapped = res.data.map(t => ({
-          id: t.task_id || t.id,
-          task: t.task_title || t.title || 'Untitled Task',
-          due: t.due_date ? new Date(t.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No Due Date',
-          status: t.status
-            ? (t.status === 'in_progress'
-              ? 'In Progress'
-              : t.status.charAt(0).toUpperCase() + t.status.slice(1))
-            : 'Pending',
+        const mapped = res.data.map(t => {
+          const statusStr = typeof t.status === 'string'
+            ? t.status
+            : (t.status_id === 3 ? 'completed' : t.status_id === 2 ? 'in_progress' : 'pending');
 
-          priority: t.priority
-            ? t.priority.charAt(0).toUpperCase() + t.priority.slice(1)
-            : 'Low',
-          progress: t.status === 'completed' ? 100 : t.status === 'in_progress' ? 60 : 20,
-          assignee: t.assigned_to || t.employee_id || 'Assigned'
-        }));
+          const priorityStr = typeof t.priority === 'string'
+            ? t.priority
+            : (t.priority_id === 1 ? 'High' : t.priority_id === 2 ? 'Medium' : 'Low');
+
+          const statusDisplay = statusStr === 'in_progress' ? 'In Progress' : statusStr.charAt(0).toUpperCase() + statusStr.slice(1);
+          const priorityDisplay = priorityStr.charAt(0).toUpperCase() + priorityStr.slice(1);
+          const progressVal = statusStr === 'completed' ? 100 : statusStr === 'in_progress' ? 60 : 20;
+
+          return {
+            id: t.task_id || t.id,
+            task: t.task_title || t.title || 'Untitled Task',
+            due: t.due_date ? new Date(t.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : t("noDueDate"),
+            status: statusDisplay,
+            priority: priorityDisplay,
+            progress: progressVal,
+            assignee: t.employee_id ? `Employee #${t.employee_id}` : (t.assigned_to || 'Unassigned')
+          };
+        });
         setTasks(mapped);
       }
+
     } catch (err) {
       console.error(err);
       showToast("Failed to fetch tasks", "error");
@@ -48,7 +58,7 @@ function MyTask() {
 
   const handleDeleteTask = async (id) => {
     if (role !== 'admin') {
-      showToast('Deletions are only authorized for Admin accounts.', 'error');
+      showToast(t("adminDeleteOnly"), 'error');
       return;
     }
     try {
@@ -110,8 +120,13 @@ function MyTask() {
         {/* Header Title Card */}
         <div className="bg-[#0f172a]/60 border border-slate-800 p-6 rounded-2xl backdrop-blur-md shadow-xl flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-bold text-white">My Task</h2>
-            <p className="text-sm text-slate-300 mt-1">Manage and track your assigned task pipelines</p>
+            <h2 className="text-3xl font-bold text-white">
+              {t("myTask")}
+            </h2>
+
+            <p className="text-sm text-slate-300 mt-1">
+              {t("manageTrackTasks")}
+            </p>
           </div>
 
           {role === 'admin' && (
@@ -120,7 +135,7 @@ function MyTask() {
               className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/25"
             >
               <Plus className="w-4.5 h-4.5" />
-              Create Task
+              {t("createTask")}
             </button>
           )}
         </div>
@@ -132,7 +147,7 @@ function MyTask() {
             <Search className="absolute left-3.5 top-3 w-4.5 h-4.5 text-slate-400" />
             <input
               type="text"
-              placeholder="Search Task"
+              placeholder={t("searchTask")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500"
@@ -147,10 +162,10 @@ function MyTask() {
               onChange={(e) => setStatusFilter(e.target.value)}
               className="px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-white focus:outline-none"
             >
-              <option value="All">All Status</option>
-              <option value="Pending">Pending</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Completed">Completed</option>
+              <option value="All">{t("allStatus")}</option>
+              <option value="Pending">{t("pending")}</option>
+              <option value="In Progress">{t("inProgress")}</option>
+              <option value="Completed">{t("completed")}</option>
             </select>
 
             {/* Priority Select */}
@@ -159,10 +174,10 @@ function MyTask() {
               onChange={(e) => setPriorityFilter(e.target.value)}
               className="px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-white focus:outline-none"
             >
-              <option value="All">All Priority</option>
-              <option value="High">High</option>
-              <option value="Medium">Medium</option>
-              <option value="Low">Low</option>
+              <option value="All">{t("allPriority")}</option>
+              <option value="High">{t("high")}</option>
+              <option value="Medium">{t("medium")}</option>
+              <option value="Low">{t("low")}</option>
             </select>
 
             {/* Sort checkbox */}
@@ -171,7 +186,7 @@ function MyTask() {
               className={`px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all ${sortByDueDate ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-900 text-slate-300 border-slate-800 hover:text-white'
                 }`}
             >
-              Sort Due Date
+              {t("sortDueDate")}
             </button>
           </div>
         </div>
@@ -180,20 +195,25 @@ function MyTask() {
         <div className="bg-white text-slate-800 rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
           {filtered.length === 0 ? (
             <div className="p-12 text-center text-slate-500">
-              <p className="font-semibold text-lg">No tasks found</p>
-              <p className="text-xs text-slate-400 mt-1">Try relaxing filters or search terms</p>
+              <p className="font-semibold text-lg">
+                {t("noTasksFound")}
+              </p>
+
+              <p className="text-xs text-slate-400 mt-1">
+                {t("tryDifferentSearch")}
+              </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-100 text-left">
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Task</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Due Date</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Priority</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Progress</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Action</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{t("task")}</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{t("dueDate")}</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{t("status")}</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{t("priority")}</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{t("progress")}</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">{t("action")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -201,7 +221,9 @@ function MyTask() {
                     <tr key={task.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="px-6 py-4">
                         <div className="font-bold text-slate-950 text-sm">{task.task}</div>
-                        <div className="text-[10px] text-slate-400 mt-0.5">Assigned to: {task.assignee}</div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">
+                          {t("assignedTo")}: {task.assignee}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-semibold">{task.due}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -229,14 +251,14 @@ function MyTask() {
                             className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-bold transition-all"
                           >
                             <Eye className="w-3.5 h-3.5" />
-                            View Detail
+                            {t("viewDetail")}
                           </button>
 
                           {role === 'admin' && (
                             <button
                               onClick={() => handleDeleteTask(task.id)}
                               className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition-all"
-                              title="Delete task"
+                              title={t("deleteTask")}
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -254,7 +276,9 @@ function MyTask() {
 
       {/* Footer */}
       <footer className="w-full bg-[#090d16] border-t border-slate-900 py-8 px-6 text-center text-xs text-slate-500 mt-auto">
-        <p className="mb-2">© 2026 Employee Task Tracker System | All Rights Reserved</p>
+        <p className="mb-2">
+          {t("footerText")}
+        </p>
         <p><span className="text-slate-400 font-semibold"></span></p>
       </footer>
     </div>

@@ -19,12 +19,15 @@ function Login() {
     e.preventDefault();
     setLoading(true);
     try {
-      console.log("Trying Login with:", username);
-      const formData = new FormData();
-      formData.append('username', username);
-      formData.append('password', password);
-      const res = await api.post('/auth/login', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-      console.log("LOGIN RESPONSE:", res.data);
+      console.log("[Login] Attempting login for username:", username);
+      const params = new URLSearchParams();
+      params.append('username', username);
+      params.append('password', password);
+
+      const res = await api.post('/auth/login', params, {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      });
+      console.log("[Login] Success response:", res.data);
       if (res.data?.access_token) {
         localStorage.setItem('token', res.data.access_token);
         localStorage.setItem('username', username);
@@ -41,15 +44,28 @@ function Login() {
         const finalRole = (userRole || 'employee').toLowerCase();
         localStorage.setItem('role', finalRole);
         console.log("Role stored successfully in localStorage:", localStorage.getItem('role'));
-        showToast('Login successful!');
+        showToast('Login successful!', 'success');
         navigate('/dashboard');
       } else {
-        showToast('Token not received', 'error');
+        showToast('Token not received from server', 'error');
       }
     } catch (err) {
-      console.error("Login Error:", err);
-      console.log(err.response?.data);
-      alert(JSON.stringify(err.response?.data || err.message));
+      console.error("[Login] Error details:", err);
+      let errorMsg = "Login failed";
+      if (err.response?.data?.detail) {
+        errorMsg = typeof err.response.data.detail === 'object'
+          ? JSON.stringify(err.response.data.detail)
+          : err.response.data.detail;
+      } else if (err.response?.data) {
+        errorMsg = typeof err.response.data === 'object'
+          ? JSON.stringify(err.response.data)
+          : err.response.data;
+      } else if (err.code === 'ERR_NETWORK' || err.message === 'Network Error') {
+        errorMsg = 'Network Error: Cannot connect to backend server at http://127.0.0.1:8001/api. Please ensure the backend server is running.';
+      } else if (err.message) {
+        errorMsg = err.message;
+      }
+      showToast(errorMsg, 'error');
     } finally {
       setLoading(false);
     }
@@ -59,7 +75,7 @@ function Login() {
     e.preventDefault();
     setLoading(true);
     try {
-      console.log("Trying Register:", username, employeeId, role);
+      console.log("[Register] Attempting registration for:", username, email, employeeId, role);
       const formattedRole = role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
       await api.post('/auth/register', {
         username,
@@ -68,14 +84,17 @@ function Login() {
         password,
         role: formattedRole
       });
-      showToast('Registration successful!');
+      showToast('Registration successful!', 'success');
 
       // Auto Login
-      const formData = new FormData();
-      formData.append('username', username);
-      formData.append('password', password);
-      const res = await api.post('/auth/login', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-      console.log("AUTO LOGIN RESPONSE:", res.data);
+      const params = new URLSearchParams();
+      params.append('username', username);
+      params.append('password', password);
+
+      const res = await api.post('/auth/login', params, {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      });
+      console.log("[Register] Auto login response:", res.data);
 
       if (res.data?.access_token) {
         localStorage.setItem('token', res.data.access_token);
@@ -99,13 +118,22 @@ function Login() {
       navigate('/dashboard');
 
     } catch (err) {
-      console.log("FULL ERROR:", err);
-      console.log("RESPONSE:", err.response);
-      console.log("DATA:", err.response?.data);
-      console.log("MESSAGE:", err.message);
-
-      const errorMsg = err.response?.data?.detail || err.response?.data || (err.message === 'Network Error' ? 'Network Error: Please make sure the backend server is running on http://127.0.0.1:8000.' : err.message);
-      alert(typeof errorMsg === 'object' ? JSON.stringify(errorMsg) : errorMsg);
+      console.error("[Register] Error details:", err);
+      let errorMsg = "Registration failed";
+      if (err.response?.data?.detail) {
+        errorMsg = typeof err.response.data.detail === 'object'
+          ? JSON.stringify(err.response.data.detail)
+          : err.response.data.detail;
+      } else if (err.response?.data) {
+        errorMsg = typeof err.response.data === 'object'
+          ? JSON.stringify(err.response.data)
+          : err.response.data;
+      } else if (err.code === 'ERR_NETWORK' || err.message === 'Network Error') {
+        errorMsg = 'Network Error: Cannot connect to backend server at http://127.0.0.1:8001/api. Please ensure the backend server is running.';
+      } else if (err.message) {
+        errorMsg = err.message;
+      }
+      showToast(errorMsg, 'error');
     } finally {
       setLoading(false);
     }
