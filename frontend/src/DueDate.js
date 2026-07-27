@@ -3,35 +3,28 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Calendar as CalendarIcon, Bell, ArrowRight } from 'lucide-react';
 import Navbar from './Navbar';
 import api, { showToast } from './axios';
+import { useTranslation } from 'react-i18next';
 
 function DueDate() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
-  const [selectedDate, setSelectedDate] = useState(26);
+  const [selectedDate, setSelectedDate] = useState(
+    new Date().getDate()
+  );
   const [tasks, setTasks] = useState([]);
   const role = localStorage.getItem('role') || 'employee';
   const [loading, setLoading] = useState(false);
 
   // Top banner values (counts)
-  const [overdueCount, setOverdueCount] = useState(3);
-  const [todayCount, setTodayCount] = useState(3);
-  const [upcomingCount, setUpcomingCount] = useState(3);
+  const [overdueCount, setOverdueCount] = useState(0);
+  const [todayCount, setTodayCount] = useState(0);
+  const [upcomingCount, setUpcomingCount] = useState(0);
 
   // Task arrays
-  const [upcomingTasks, setUpcomingTasks] = useState([
-    { id: 1, name: 'Website Launch', due: 'May 28', assign: 'David Mailer' },
-    { id: 2, name: 'Update Documentation', due: 'May 30', assign: 'Sarah Wilson' },
-    { id: 3, name: 'Sales Presentation', due: 'June 1', assign: 'Ritik Verma' },
-  ]);
-  const [overdueTasks, setOverdueTasks] = useState([
-    { id: 4, name: 'Report Analysis', due: 'May 23', label: 'Overdue' },
-    { id: 5, name: 'Client Feedback', due: 'May 25', label: 'Overdue' },
-    { id: 6, name: 'QA Testing', due: 'May 20', label: 'Pending' },
-  ]);
-  const [todayTasks, setTodayTasks] = useState([
-    { id: 7, name: 'Team Meeting', time: '3:00 PM' },
-    { id: 8, name: 'Draft Submission', due: '5:00 PM' },
-    { id: 9, name: 'Code Review', status: 'In Progress' },
-  ]);
+
+  const [upcomingTasks, setUpcomingTasks] = useState([]);
+  const [overdueTasks, setOverdueTasks] = useState([]);
+  const [todayTasks, setTodayTasks] = useState([]);
 
   useEffect(() => {
     // GET /tasks/?skip=0&limit=100
@@ -39,8 +32,10 @@ function DueDate() {
       setLoading(true);
       try {
         const res = await api.get('/tasks/?skip=0&limit=100');
+        console.log("TASK RESPONSE:", res.data);
         if (res.data && res.data.length > 0) {
           setTasks(res.data);
+
 
           // Classify tasks
           const now = new Date();
@@ -75,13 +70,23 @@ function DueDate() {
             }
           });
 
-          if (upcomingList.length > 0) setUpcomingTasks(upcomingList);
-          if (overdueList.length > 0) setOverdueTasks(overdueList);
-          if (todayList.length > 0) setTodayTasks(todayList);
+          setUpcomingTasks(upcomingList);
+          setOverdueTasks(overdueList);
+          setTodayTasks(todayList);
 
-          setUpcomingCount(upcomingList.length || 3);
-          setOverdueCount(overdueList.length || 3);
-          setTodayCount(todayList.length || 3);
+          setUpcomingCount(upcomingList.length);
+          setOverdueCount(overdueList.length);
+          setTodayCount(todayList.length);
+        }
+        else {
+          setTasks([]);
+          setUpcomingTasks([]);
+          setOverdueTasks([]);
+          setTodayTasks([]);
+
+          setUpcomingCount(0);
+          setOverdueCount(0);
+          setTodayCount(0);
         }
       } catch (err) {
         console.error('Error fetching tasks for DueDate page, using defaults.', err);
@@ -109,7 +114,20 @@ function DueDate() {
   };
 
   // Calendar dates representation
-  const calendarDates = Array.from({ length: 31 }, (_, i) => i + 1);
+  const monthYear = new Date().toLocaleString("default", {
+    month: "long",
+    year: "numeric",
+  });
+  const daysInMonth = new Date(
+    new Date().getFullYear(),
+    new Date().getMonth() + 1,
+    0
+  ).getDate();
+
+  const calendarDates = Array.from(
+    { length: daysInMonth },
+    (_, i) => i + 1
+  );
 
   return (
     <div className="min-h-screen text-slate-100 flex flex-col font-sans bg-transparent">
@@ -121,19 +139,27 @@ function DueDate() {
 
         {/* Due Date Header */}
         <div className="bg-[#0f172a]/60 border border-slate-800 p-6 rounded-2xl backdrop-blur-md shadow-xl text-center">
-          <h2 className="text-3xl font-bold text-white">Due Date Reminder Page</h2>
+          <h2 className="text-3xl font-bold text-white">
+            {t('dueDateReminder')}
+          </h2>
         </div>
 
         {/* Top 3 Horizontal banners */}
         <div className="bg-[#1a237e] text-white flex flex-col md:flex-row items-center rounded-2xl overflow-hidden shadow-lg border border-[#2563eb]/25 max-w-5xl mx-auto w-full">
-          <div className="flex-1 text-center py-3.5 px-4 font-semibold text-sm border-b md:border-b-0 md:border-r border-white/10">
-            Team Meeting at 3:00 PM
-          </div>
-          <div className="flex-1 text-center py-3.5 px-4 font-semibold text-sm border-b md:border-b-0 md:border-r border-white/10">
-            Report Analysis is Overdue!
-          </div>
           <div className="flex-1 text-center py-3.5 px-4 font-semibold text-sm">
-            Submit Draft by 5 PM
+            {todayTasks[0]?.name || "No Task Today"}
+          </div>
+
+          <div className="flex-1 text-center py-3.5 px-4 font-semibold text-sm">
+            {overdueTasks[0]?.name
+              ? `${overdueTasks[0].name} is Overdue!`
+              : "No Overdue Tasks"}
+          </div>
+
+          <div className="flex-1 text-center py-3.5 px-4 font-semibold text-sm">
+            {upcomingTasks[0]?.name
+              ? `${upcomingTasks[0].name} Upcoming`
+              : "No Upcoming Tasks"}
           </div>
         </div>
 
@@ -143,7 +169,7 @@ function DueDate() {
           {/* Column 1: Upcoming */}
           <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl backdrop-blur-md">
             <div className="bg-blue-600 text-white font-bold text-sm px-4 py-2.5 rounded-xl text-center mb-4 shadow">
-              Upcoming Deadlines ({upcomingTasks.length})
+                Upcoming Deadlines ({upcomingCount})
             </div>
             <div className="flex flex-col gap-3">
               {upcomingTasks.map((t) => (
@@ -161,7 +187,7 @@ function DueDate() {
           {/* Column 2: Overdue */}
           <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl backdrop-blur-md">
             <div className="bg-rose-600 text-white font-bold text-sm px-4 py-2.5 rounded-xl text-center mb-4 shadow">
-              Overdue Tasks ({overdueTasks.length})
+                Overdue Tasks ({overdueCount})
             </div>
             <div className="flex flex-col gap-3">
               {overdueTasks.map((t) => (
@@ -179,7 +205,7 @@ function DueDate() {
           {/* Column 3: Today's Tasks */}
           <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl backdrop-blur-md">
             <div className="bg-emerald-600 text-white font-bold text-sm px-4 py-2.5 rounded-xl text-center mb-4 shadow">
-              Today's Tasks ({todayTasks.length})
+                Today's Tasks ({todayCount})
             </div>
             <div className="flex flex-col gap-3">
               {todayTasks.map((t) => (
@@ -198,9 +224,11 @@ function DueDate() {
           <div className="bg-white text-slate-800 p-5 rounded-2xl shadow-2xl border border-white/20">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
               <span className="font-bold text-sm text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                <CalendarIcon className="w-4 h-4 text-blue-600" /> Calendar
+                <CalendarIcon className="w-4 h-4 text-blue-600" />{t('calendar')}
               </span>
-              <span className="text-xs font-bold text-slate-500">May 2026</span>
+              <span className="text-xs font-bold text-slate-500">
+                {monthYear}
+              </span>
             </div>
 
             {/* Calendar Grid */}
@@ -224,13 +252,50 @@ function DueDate() {
 
             {/* Event notifications below calendar */}
             <div className="border-t border-slate-100 pt-4 flex flex-col gap-2">
-              <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">Events this month:</p>
-              <div className="text-xs font-bold text-slate-700 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-600 block"></span> Website Launch May 28
-              </div>
-              <div className="text-xs font-bold text-slate-700 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-600 block"></span> Sales Presentation June 1
-              </div>
+              <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">
+                {t('eventsThisMonth')}
+              </p>
+
+              {upcomingTasks.slice(0, 2).map((task) => (
+                <div
+                  key={task.id}
+                  className="text-xs font-bold text-slate-700 flex items-center gap-2"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-600 block"></span>
+                  {task.name} - {task.due}
+                </div>
+              ))}
+            </div>
+            {/* Tasks for Selected Date */}
+            <div className="mt-4">
+              <h4 className="text-sm font-bold mb-2">
+                {t('tasksOn')} {selectedDate}
+              </h4>
+
+              {tasks
+                .filter((t) => {
+                  if (!t.due_date) return false;
+                  return new Date(t.due_date).getDate() === selectedDate;
+                })
+                .map((t) => (
+                  <div
+                    key={t.task_id}
+                    className="bg-slate-100 p-2 rounded mb-2"
+                  >
+                    {t.task_title}
+                  </div>
+                ))}
+
+              {tasks.filter(
+                (t) =>
+                  t.due_date &&
+                  new Date(t.due_date).getDate() === selectedDate
+              ).length === 0 && (
+                  <p className="text-xs text-slate-500">
+                    {t('noTasksDate')}
+                  </p>
+                )}
+
             </div>
           </div>
         </div>
@@ -243,7 +308,7 @@ function DueDate() {
               className="flex items-center gap-2 px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/25 hover:scale-102"
             >
               <Bell className="w-4.5 h-4.5" />
-              Send Reminder
+              {t('sendReminder')}
             </button>
           </div>
         )}

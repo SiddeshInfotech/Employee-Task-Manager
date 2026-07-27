@@ -16,11 +16,13 @@ def get_user_by_username(db: Session, username: str):
 def create_user(db: Session, user: schemas.UserCreate):
     hashed_password = get_password_hash(user.password)
 
+    formatted_role = user.role.capitalize() if user.role else "Employee"
+
     db_user = models.User(
         username=user.username,
         employee_id=user.employee_id,
         password=hashed_password,
-        role=user.role
+        role=formatted_role
     )
 
     db.add(db_user)

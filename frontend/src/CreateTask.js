@@ -9,9 +9,7 @@ function CreateTask() {
   const [taskForm, setTaskForm] = useState({
     title: '',
     description: '',
-    status: 'pending',
-    priority: 'high',
-    due_date: '2026-07-20T18:00',
+    due_date: '',
     assigned_to_id: ''
   });
   const [users, setUsers] = useState([]);
@@ -38,20 +36,21 @@ function CreateTask() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Format payload to match backend schema (task_title, task_description, employee_id, due_date)
     const formattedDueDate = taskForm.due_date ? taskForm.due_date.split('T')[0] : null;
     const assignedEmpId = taskForm.assigned_to_id ? Number(taskForm.assigned_to_id) : null;
 
-    const statusMap = { pending: 1, in_progress: 2, completed: 3, on_hold: 4 };
-    const priorityMap = { high: 1, medium: 2, low: 3 };
 
     const payload = {
       task_title: taskForm.title,
       task_description: taskForm.description,
       employee_id: assignedEmpId,
-      status_id: statusMap[taskForm.status] || 1,
-      priority_id: priorityMap[taskForm.priority] || 1,
+
+      // Default values
+      status_id: 1,      // Pending
+      priority_id: 1,    // High
+
       due_date: formattedDueDate
     };
 
@@ -89,8 +88,6 @@ function CreateTask() {
     setTaskForm({
       title: '',
       description: '',
-      status: 'pending',
-      priority: 'high',
       due_date: '',
       assigned_to_id: ''
     });
@@ -148,34 +145,7 @@ function CreateTask() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {/* Status Select */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Status</label>
-                <select
-                  value={taskForm.status}
-                  onChange={(e) => setTaskForm({ ...taskForm, status: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none"
-                >
-                  <option value="pending">Pending</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="completed">Completed</option>
-                  <option value="on_hold">On Hold</option>
-                </select>
-              </div>
 
-              {/* Priority Select */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Priority</label>
-                <select
-                  value={taskForm.priority}
-                  onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none"
-                >
-                  <option value="high">High</option>
-                  <option value="medium">Medium</option>
-                  <option value="low">Low</option>
-                </select>
-              </div>
 
               {/* Due date picker */}
               <div>

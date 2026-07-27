@@ -1,21 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Award, LogOut, Lock, Edit2, Camera, Building, Mail, Phone } from 'lucide-react';
 import Navbar from './Navbar';
 import api, { showToast } from './axios';
 
 function Profile() {
   const navigate = useNavigate();
-  
+  const location = useLocation();
+  const member = location.state?.member;
+  console.log("PROFILE MEMBER:", member);
+
   // Profile state matching Image 1
   const [profileForm, setProfileForm] = useState({
-    fullName: 'John Doe',
-    email: 'john.doe@email.com',
-    role: 'employee',
-    department: 'IT',
-    designation: 'Software Engineer',
-    phone: '1 234 567 8900',
-    bio: 'Full stack development and DevOps operations.'
+    fullName: member?.name || 'John Doe',
+    email: member?.email || '',
+    role: member?.role || 'employee',
+    department: member?.dept || 'IT',
+    designation: member?.designation || 'Software Engineer',
+    phone: member?.phone || '',
+    bio: ''
   });
 
   const [avatar, setAvatar] = useState('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150');
@@ -24,12 +27,34 @@ function Profile() {
 
   const localRole = localStorage.getItem('role') || 'employee';
   const username = localStorage.getItem('username') || 'john_doe';
-
   useEffect(() => {
-    // GET /users/me or fetch custom info if available
+
+    // जर TeamMembers मधून member आला असेल तर
+    if (location.state?.member) {
+
+      const member = location.state.member;
+
+      setProfileForm({
+        fullName: member.name,
+        email: member.email || "Not Available",
+        role: member.role || "employee",
+        department: member.dept,
+        designation: member.designation || "Employee",
+        phone: member.phone || "Not Available",
+        bio: ""
+      });
+
+      setAvatar(member.avatar);
+
+      return;
+    }
+
+
+    // तुझा जुना API code खाली राहू दे
     const loadProfile = async () => {
       try {
         const res = await api.get('/users/me');
+
         if (res.data) {
           setProfileForm(prev => ({
             ...prev,
@@ -39,12 +64,14 @@ function Profile() {
             department: res.data.department || prev.department,
           }));
         }
+
       } catch (err) {
         console.error('Failed to load profile details, using defaults.', err);
       }
     };
 
     loadProfile();
+
   }, []);
 
   const handleUpdate = async (e) => {
@@ -95,10 +122,10 @@ function Profile() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12 flex items-center justify-center">
-        
+
         {/* Profile Card Container - Exact Clone */}
         <div className="w-full max-w-2xl bg-white text-slate-800 rounded-3xl shadow-2xl border border-white/20 p-8 flex flex-col md:flex-row items-center gap-10">
-          
+
           {/* Avatar Upload / Left side */}
           <div className="flex flex-col items-center gap-4 relative">
             <div className="relative group">
@@ -110,7 +137,7 @@ function Profile() {
                 <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
               </label>
             </div>
-            
+
             <div className="text-center">
               <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 uppercase tracking-wider">
                 {localRole}

@@ -48,17 +48,7 @@ function AddMember() {
       completed_tasks: 0
     };
 
-    try {
-      await API.post('/auth/register', {
-        username: form.fullName.trim().replace(/\s+/g, '_').toLowerCase(),
-        email: form.email,
-        employee_id: Date.now() % 10000,
-        password: 'Password123!',
-        role: 'Employee'
-      });
-    } catch (e) {
-      console.log("Register API fallback", e);
-    }
+    try { await API.post('/team-members/', payload); } catch (e) { console.log("API fail", e); }
 
     const newMember = {
       id: Date.now(),
@@ -129,30 +119,30 @@ function AddMember() {
           </div>
 
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ fontSize: '12px', fontWeight: '700', color: '#000' }}>Full Name <span style={{ color: 'red' }}>*</span></label>
-            <input value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} placeholder="Enter full name" className={`input-box ${errors.fullName ? 'input-error' : ''}`} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', outline: 'none', fontSize: '13px', marginTop: '6px', boxSizing: 'border-box', color: '#000' }} />
+            <label style={{ fontSize: '12px', fontWeight: '700' }}>Full Name <span style={{ color: 'red' }}>*</span></label>
+            <input value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} placeholder="Enter full name" className={`input-box ${errors.fullName ? 'input-error' : ''}`} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', outline: 'none', fontSize: '13px', marginTop: '6px', boxSizing: 'border-box' }} />
           </div>
 
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ fontSize: '12px', fontWeight: '700', color: '#000' }}>Department <span style={{ color: 'red' }}>*</span></label>
-            <select value={form.department} onChange={e => setForm({ ...form, department: e.target.value })} className={`input-box ${errors.department ? 'input-error' : ''}`} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', outline: 'none', fontSize: '13px', marginTop: '6px', boxSizing: 'border-box', color: '#000' }}>
+            <label style={{ fontSize: '12px', fontWeight: '700' }}>Department <span style={{ color: 'red' }}>*</span></label>
+            <select value={form.department} onChange={e => setForm({ ...form, department: e.target.value })} className={`input-box ${errors.department ? 'input-error' : ''}`} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', outline: 'none', fontSize: '13px', marginTop: '6px', boxSizing: 'border-box' }}>
               <option value="">Select department</option><option>Marketing</option><option>Development</option><option>Design</option><option>Computer</option><option>HR</option><option>Support</option>
             </select>
           </div>
 
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ fontSize: '12px', fontWeight: '700', color: '#000' }}>Email <span style={{ color: 'red' }}>*</span></label>
-            <input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="Enter email" className={`input-box ${errors.email ? 'input-error' : ''}`} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', outline: 'none', fontSize: '13px', marginTop: '6px', boxSizing: 'border-box', color: '#000' }} />
+            <label style={{ fontSize: '12px', fontWeight: '700' }}>Email <span style={{ color: 'red' }}>*</span></label>
+            <input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="Enter email" className={`input-box ${errors.email ? 'input-error' : ''}`} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', outline: 'none', fontSize: '13px', marginTop: '6px', boxSizing: 'border-box' }} />
           </div>
 
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ fontSize: '12px', fontWeight: '700', color: '#000' }}>Mobile <span style={{ color: 'red' }}>*</span></label>
-            <input value={form.mobile} onChange={e => setForm({ ...form, mobile: e.target.value })} maxLength={10} placeholder="Enter mobile number" className={`input-box ${errors.mobile ? 'input-error' : ''}`} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', outline: 'none', fontSize: '13px', marginTop: '6px', boxSizing: 'border-box', color: '#000' }} />
+            <label style={{ fontSize: '12px', fontWeight: '700' }}>Mobile <span style={{ color: 'red' }}>*</span></label>
+            <input value={form.mobile} onChange={e => setForm({ ...form, mobile: e.target.value })} maxLength={10} placeholder="Enter mobile number" className={`input-box ${errors.mobile ? 'input-error' : ''}`} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', outline: 'none', fontSize: '13px', marginTop: '6px', boxSizing: 'border-box' }} />
           </div>
 
           <div style={{ marginBottom: '22px' }}>
-            <label style={{ fontSize: '12px', fontWeight: '700', color: '#000' }}>Skills</label>
-            <textarea value={form.skills} onChange={e => setForm({ ...form, skills: e.target.value })} placeholder="Enter skills" rows={3} className="input-box" style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', outline: 'none', fontSize: '13px', marginTop: '6px', boxSizing: 'border-box', color: '#000' }} />
+            <label style={{ fontSize: '12px', fontWeight: '700' }}>Skills</label>
+            <textarea value={form.skills} onChange={e => setForm({ ...form, skills: e.target.value })} placeholder="Enter skills" rows={3} className="input-box" style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', outline: 'none', fontSize: '13px', marginTop: '6px', boxSizing: 'border-box' }} />
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
