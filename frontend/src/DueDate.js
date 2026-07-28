@@ -12,84 +12,97 @@ function DueDate() {
     new Date().getDate()
   );
   const [tasks, setTasks] = useState([]);
-  const role = localStorage.getItem('role') || 'employee';
-  const [loading, setLoading] = useState(false);
+  const role = (localStorage.getItem('role') || 'employee').toLowerCase();
+  const username = (localStorage.getItem('username') || '').toLowerCase();
+  const userId = localStorage.getItem('userId') || localStorage.getItem('user_id') || localStorage.getItem('employee_id');
 
-  // Top banner values (counts)
+  const [loading, setLoading] = useState(false);
   const [overdueCount, setOverdueCount] = useState(0);
   const [todayCount, setTodayCount] = useState(0);
   const [upcomingCount, setUpcomingCount] = useState(0);
-
-  // Task arrays
-
   const [upcomingTasks, setUpcomingTasks] = useState([]);
   const [overdueTasks, setOverdueTasks] = useState([]);
   const [todayTasks, setTodayTasks] = useState([]);
+
+  const isTaskForCurrentUser = (t) => {
+    if (role === 'admin') return true;
+    const empIdStr = t.employee_id !== undefined && t.employee_id !== null ? String(t.employee_id) : '';
+    const assignedToStr = (t.assigned_to || t.assignee || t.employee_name || t.username || '').toLowerCase();
+    return (
+      (userId && empIdStr === String(userId)) ||
+      (username && assignedToStr.length > 0 && (assignedToStr.includes(username) || username.includes(assignedToStr)))
+    );
+  };
+
+  const classifyTasks = (taskData) => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    const upcomingList = [];
+    const overdueList = [];
+    const todayList = [];
+
+    taskData.forEach(t => {
+      const rawDue = t.due_date;
+      const taskDate = rawDue ? new Date(rawDue) : null;
+      if (taskDate && !isNaN(taskDate)) {
+        taskDate.setHours(0, 0, 0, 0);
+        const formattedDate = new Date(rawDue).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+        const item = {
+          id: t.task_id || t.id,
+          name: t.task_title || t.title || t.task || 'Untitled Task',
+          due: formattedDate,
+          assign: t.assigned_to || t.assignee || 'Assignee',
+          label: t.status || 'pending',
+          rawDate: taskDate
+        };
+
+        const statusStr = String(t.status || '').toLowerCase();
+        if (taskDate < now && statusStr !== 'completed') {
+          overdueList.push(item);
+        } else if (taskDate.getTime() === now.getTime()) {
+          todayList.push(item);
+        } else if (taskDate > now) {
+          upcomingList.push(item);
+        }
+      }
+    });
+
+    setUpcomingTasks(upcomingList);
+    setOverdueTasks(overdueList);
+    setTodayTasks(todayList);
+    setUpcomingCount(upcomingList.length);
+    setOverdueCount(overdueList.length);
+    setTodayCount(todayList.length);
+  };
 
   useEffect(() => {
     // GET /tasks/?skip=0&limit=100
     const fetchTasks = async () => {
       setLoading(true);
+      const localTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
+      const filteredLocal = localTasks.filter(isTaskForCurrentUser);
+
       try {
         const res = await api.get('/tasks/?skip=0&limit=100');
-        console.log("TASK RESPONSE:", res.data);
-        if (res.data && res.data.length > 0) {
-          setTasks(res.data);
+        let apiData = (res.data && res.data.length > 0) ? res.data : [];
 
-
-          // Classify tasks
-          const now = new Date();
-          now.setHours(0, 0, 0, 0);
-
-          const upcomingList = [];
-          const overdueList = [];
-          const todayList = [];
-
-          res.data.forEach(t => {
-            const taskDate = t.due_date ? new Date(t.due_date) : null;
-            if (taskDate) {
-              taskDate.setHours(0, 0, 0, 0);
-              const formattedDate = new Date(t.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
-              const item = {
-                id: t.task_id || t.id,
-                name: t.task_title || t.title || 'Untitled Task',
-                due: formattedDate,
-                assign: 'Assignee',
-                label: t.status,
-                rawDate: taskDate
-              };
-
-              if (taskDate < now && t.status !== 'completed') {
-                overdueList.push(item);
-              } else if (taskDate.getTime() === now.getTime()) {
-                todayList.push(item);
-              } else {
-                upcomingList.push(item);
-              }
-            }
-          });
-
-          setUpcomingTasks(upcomingList);
-          setOverdueTasks(overdueList);
-          setTodayTasks(todayList);
-
-          setUpcomingCount(upcomingList.length);
-          setOverdueCount(overdueList.length);
-          setTodayCount(todayList.length);
+        if (role !== 'admin') {
+          apiData = apiData.filter(isTaskForCurrentUser);
         }
-        else {
-          setTasks([]);
-          setUpcomingTasks([]);
-          setOverdueTasks([]);
-          setTodayTasks([]);
 
-          setUpcomingCount(0);
-          setOverdueCount(0);
-          setTodayCount(0);
-        }
+        // Merge without duplicates
+        const apiIds = new Set(apiData.map(t => String(t.task_id || t.id)));
+        const extraLocal = filteredLocal.filter(lt => !apiIds.has(String(lt.id || lt.task_id)));
+        const merged = [...apiData, ...extraLocal];
+
+        setTasks(merged);
+        classifyTasks(merged);
       } catch (err) {
-        console.error('Error fetching tasks for DueDate page, using defaults.', err);
+        console.warn('API unavailable, loading from localStorage:', err);
+        setTasks(filteredLocal);
+        classifyTasks(filteredLocal);
       } finally {
         setLoading(false);
       }

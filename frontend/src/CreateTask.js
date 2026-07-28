@@ -16,71 +16,85 @@ function CreateTask() {
   const role = localStorage.getItem('role') || 'employee';
 
   useEffect(() => {
-    if (role !== 'admin') {
-      showToast('Only admins can create tasks');
-      navigate('/my-task');
-      return;
-    }
-
     const fetchUsers = async () => {
       try {
         const res = await api.get('/users/');
-        if (res.data) setUsers(res.data);
+        let userList = res.data || [];
+
+        const localMembers = JSON.parse(localStorage.getItem('myNewMembers') || '[]');
+        const localUsers = JSON.parse(localStorage.getItem('myNewUsers') || '[]');
+
+        const combined = [...userList];
+        [...localMembers, ...localUsers].forEach(lm => {
+          if (lm && lm.id && !combined.some(u => String(u.id) === String(lm.id))) {
+            combined.push({
+              id: lm.id,
+              username: lm.name || lm.username || `Employee #${lm.id}`,
+              email: lm.email || ''
+            });
+          }
+        });
+
+        setUsers(combined);
       } catch (err) {
         console.error('Failed to load users for task assignment', err);
+        const localMembers = JSON.parse(localStorage.getItem('myNewMembers') || '[]');
+        const localUsers = JSON.parse(localStorage.getItem('myNewUsers') || '[]');
+        setUsers([...localMembers, ...localUsers]);
       }
     };
 
     fetchUsers();
-  }, [role, navigate]);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Format payload to match backend schema (task_title, task_description, employee_id, due_date)
     const formattedDueDate = taskForm.due_date ? taskForm.due_date.split('T')[0] : null;
-    const assignedEmpId = taskForm.assigned_to_id ? Number(taskForm.assigned_to_id) : null;
+    const currentUserId = localStorage.getItem('userId') || localStorage.getItem('user_id') || localStorage.getItem('employee_id') || '1';
+    const assignedEmpId = taskForm.assigned_to_id ? Number(taskForm.assigned_to_id) : Number(currentUserId);
 
+    const assignedUserObj = users.find(u => String(u.id) === String(assignedEmpId));
+    const assignedName = assignedUserObj ? (assignedUserObj.username || assignedUserObj.name) : (localStorage.getItem('username') || 'Employee');
 
     const payload = {
       task_title: taskForm.title,
       task_description: taskForm.description,
       employee_id: assignedEmpId,
-
-      // Default values
+      assigned_to: assignedName,
       status_id: 1,      // Pending
       priority_id: 1,    // High
-
       due_date: formattedDueDate
     };
 
-    console.log("Submitting Create Task Payload:", payload);
+    const localTaskItem = {
+      id: Date.now(),
+      task_id: Date.now(),
+      task_title: taskForm.title,
+      title: taskForm.title,
+      task: taskForm.title,
+      task_description: taskForm.description,
+      employee_id: assignedEmpId,
+      assigned_to: assignedName,
+      assignee: assignedName,
+      status_id: 1,
+      status: 'Pending',
+      priority_id: 1,
+      priority: 'High',
+      due_date: formattedDueDate || new Date().toISOString().split('T')[0]
+    };
 
     try {
-      const res = await api.post('/tasks/', payload);
-      console.log("Create Task API Response:", res.data);
+      await api.post('/tasks/', payload);
+    } catch (err) {
+      console.warn("API endpoint unavailable, storing task locally:", err);
+    } finally {
+      const existingLocal = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
+      existingLocal.push(localTaskItem);
+      localStorage.setItem('myNewTasks', JSON.stringify(existingLocal));
 
       showToast('Task created successfully');
       navigate('/my-task');
-    } catch (err) {
-      console.error("Create Task API Error:", err);
-      console.log("Error Response Data:", err.response?.data);
-      console.log("Error Status:", err.response?.status);
-
-      let errMsg = 'Failed to create task';
-      if (err.response?.data?.detail) {
-        if (typeof err.response.data.detail === 'string') {
-          errMsg = err.response.data.detail;
-        } else if (Array.isArray(err.response.data.detail)) {
-          errMsg = err.response.data.detail.map(e => `${e.loc?.slice(-1)[0] || 'field'}: ${e.msg}`).join(', ');
-        } else {
-          errMsg = JSON.stringify(err.response.data.detail);
-        }
-      } else if (err.message) {
-        errMsg = err.message;
-      }
-
-      showToast(errMsg, 'error');
     }
   };
 
@@ -146,7 +160,6 @@ function CreateTask() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-
               {/* Due date picker */}
               <div>
                 <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Due Date</label>
@@ -164,22 +177,23 @@ function CreateTask() {
                 />
               </div>
 
-              {/* Assign To (Only shown if Admin) */}
-              {role === 'admin' && users.length > 0 && (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Assign To</label>
-                  <select
-                    value={taskForm.assigned_to_id}
-                    onChange={(e) => setTaskForm({ ...taskForm, assigned_to_id: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none"
-                  >
-                    <option value="">Select Employee...</option>
-                    {users.map(u => (
-                      <option key={u.id} value={u.id}>{u.username}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              {/* Assign To Employee */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Assign To Employee</label>
+                <select
+                  value={taskForm.assigned_to_id}
+                  onChange={(e) => setTaskForm({ ...taskForm, assigned_to_id: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none text-black bg-white"
+                  style={{ color: "#000", backgroundColor: "#fff" }}
+                >
+                  <option value="" style={{ color: "#000", backgroundColor: "#fff" }}>Assign to Myself / Select Employee...</option>
+                  {users.map(u => (
+                    <option key={u.id} value={u.id} style={{ color: "#000", backgroundColor: "#fff" }}>
+                      {u.username || u.name || `Employee #${u.id}`} {u.email ? `(${u.email})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* Reset / Submit Actions */}

@@ -97,10 +97,10 @@ function AddMember() {
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <div className="form-card" style={{ background: 'white', borderRadius: '14px', width: '100%', maxWidth: '580px', padding: '28px', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }}>
+        <div className="form-card" style={{ background: 'white', color: '#000', borderRadius: '14px', width: '100%', maxWidth: '580px', padding: '28px', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }}>
 
           <div style={{ marginBottom: '22px', textAlign: 'center' }}>
-            <label style={{ fontSize: '12px', fontWeight: '700', display: 'block', marginBottom: '10px', textAlign: 'left' }}>Profile Photo</label>
+            <label style={{ fontSize: '12px', fontWeight: '700', color: '#000', display: 'block', marginBottom: '10px', textAlign: 'left' }}>Profile Photo</label>
             <input type="file" id="photo" accept="image/*" onChange={handlePhotoChange} style={{ display: 'none' }} />
             <label htmlFor="photo" className="photo-upload" style={{ display: 'block' }}>
               {photoPreview ? (
@@ -111,43 +111,49 @@ function AddMember() {
               ) : (
                 <div>
                   <div style={{ fontSize: '36px' }}>📸</div>
-                  <p style={{ margin: '8px 0 4px', fontSize: '13px', fontWeight: '600' }}>Click to upload photo</p>
-                  <p style={{ margin: 0, fontSize: '11px', color: '#6b7280' }}>PNG, JPG up to 2MB</p>
+                  <p style={{ margin: '8px 0 4px', fontSize: '13px', fontWeight: '600', color: '#000' }}>Click to upload photo</p>
+                  <p style={{ margin: 0, fontSize: '11px', color: '#4b5563' }}>PNG, JPG up to 2MB</p>
                 </div>
               )}
             </label>
           </div>
 
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ fontSize: '12px', fontWeight: '700' }}>Full Name <span style={{ color: 'red' }}>*</span></label>
-            <input value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} placeholder="Enter full name" className={`input-box ${errors.fullName ? 'input-error' : ''}`} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', outline: 'none', fontSize: '13px', marginTop: '6px', boxSizing: 'border-box' }} />
+            <label style={{ fontSize: '12px', fontWeight: '700', color: '#000' }}>Full Name <span style={{ color: 'red' }}>*</span></label>
+            <input value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} placeholder="Enter full name" className={`input-box ${errors.fullName ? 'input-error' : ''}`} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', outline: 'none', fontSize: '13px', marginTop: '6px', boxSizing: 'border-box', color: '#000', backgroundColor: '#fff' }} />
           </div>
 
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ fontSize: '12px', fontWeight: '700' }}>Department <span style={{ color: 'red' }}>*</span></label>
-            <select value={form.department} onChange={e => setForm({ ...form, department: e.target.value })} className={`input-box ${errors.department ? 'input-error' : ''}`} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', outline: 'none', fontSize: '13px', marginTop: '6px', boxSizing: 'border-box' }}>
-              <option value="">Select department</option><option>Marketing</option><option>Development</option><option>Design</option><option>Computer</option><option>HR</option><option>Support</option>
+            <label style={{ fontSize: '12px', fontWeight: '700', color: '#000' }}>Department <span style={{ color: 'red' }}>*</span></label>
+            <select value={form.department} onChange={e => setForm({ ...form, department: e.target.value })} className={`input-box ${errors.department ? 'input-error' : ''}`} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', outline: 'none', fontSize: '13px', marginTop: '6px', boxSizing: 'border-box', color: '#000', backgroundColor: '#fff' }}>
+              <option style={{ color: '#000', backgroundColor: '#fff' }} value="">Select department</option>
+              <option style={{ color: '#000', backgroundColor: '#fff' }}>Marketing</option>
+              <option style={{ color: '#000', backgroundColor: '#fff' }}>Development</option>
+              <option style={{ color: '#000', backgroundColor: '#fff' }}>Design</option>
+              <option style={{ color: '#000', backgroundColor: '#fff' }}>Computer</option>
+              <option style={{ color: '#000', backgroundColor: '#fff' }}>HR</option>
+              <option style={{ color: '#000', backgroundColor: '#fff' }}>Support</option>
             </select>
           </div>
 
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ fontSize: '12px', fontWeight: '700' }}>Email <span style={{ color: 'red' }}>*</span></label>
-            <input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="Enter email" className={`input-box ${errors.email ? 'input-error' : ''}`} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', outline: 'none', fontSize: '13px', marginTop: '6px', boxSizing: 'border-box' }} />
+            <label style={{ fontSize: '12px', fontWeight: '700', color: '#000' }}>Email <span style={{ color: 'red' }}>*</span></label>
+            <input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="Enter email" className={`input-box ${errors.email ? 'input-error' : ''}`} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', outline: 'none', fontSize: '13px', marginTop: '6px', boxSizing: 'border-box', color: '#000', backgroundColor: '#fff' }} />
           </div>
 
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ fontSize: '12px', fontWeight: '700' }}>Mobile <span style={{ color: 'red' }}>*</span></label>
-            <input value={form.mobile} onChange={e => setForm({ ...form, mobile: e.target.value })} maxLength={10} placeholder="Enter mobile number" className={`input-box ${errors.mobile ? 'input-error' : ''}`} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', outline: 'none', fontSize: '13px', marginTop: '6px', boxSizing: 'border-box' }} />
+            <label style={{ fontSize: '12px', fontWeight: '700', color: '#000' }}>Mobile <span style={{ color: 'red' }}>*</span></label>
+            <input value={form.mobile} onChange={e => setForm({ ...form, mobile: e.target.value })} maxLength={10} placeholder="Enter mobile number" className={`input-box ${errors.mobile ? 'input-error' : ''}`} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', outline: 'none', fontSize: '13px', marginTop: '6px', boxSizing: 'border-box', color: '#000', backgroundColor: '#fff' }} />
           </div>
 
           <div style={{ marginBottom: '22px' }}>
-            <label style={{ fontSize: '12px', fontWeight: '700' }}>Skills</label>
-            <textarea value={form.skills} onChange={e => setForm({ ...form, skills: e.target.value })} placeholder="Enter skills" rows={3} className="input-box" style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', outline: 'none', fontSize: '13px', marginTop: '6px', boxSizing: 'border-box' }} />
+            <label style={{ fontSize: '12px', fontWeight: '700', color: '#000' }}>Skills</label>
+            <textarea value={form.skills} onChange={e => setForm({ ...form, skills: e.target.value })} placeholder="Enter skills" rows={3} className="input-box" style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', outline: 'none', fontSize: '13px', marginTop: '6px', boxSizing: 'border-box', color: '#000', backgroundColor: '#fff' }} />
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
             <button className="btn-hov" onClick={() => navigate('/team')} style={{ padding: '9px 22px', borderRadius: '8px', border: '1px solid #fecaca', background: 'white', color: '#dc2626', fontWeight: '700', fontSize: '12px' }}>✕ Cancel</button>
-            <button className="btn-hov" onClick={handleSubmit} disabled={isSubmitting} style={{ padding: '9px 22px', borderRadius: '8px', border: 'none', background: isSubmitting ? '#9ca3af' : '#1e3a8a', color: 'white', fontWeight: '700', fontSize: '12px' }}>{isSubmitting ? 'Adding...' : '✓ Submit via API'}</button>
+            <button className="btn-hov" onClick={handleSubmit} disabled={isSubmitting} style={{ padding: '9px 22px', borderRadius: '8px', border: 'none', background: isSubmitting ? '#9ca3af' : '#1e3a8a', color: 'white', fontWeight: '700', fontSize: '12px' }}>{isSubmitting ? 'Adding...' : 'Submit'}</button>
           </div>
 
         </div>

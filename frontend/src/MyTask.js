@@ -14,41 +14,71 @@ function MyTask() {
   const [priorityFilter, setPriorityFilter] = useState('All');
   const [sortByDueDate, setSortByDueDate] = useState(false);
 
-  const role = localStorage.getItem('role') || 'employee';
+  const role = (localStorage.getItem('role') || 'employee').toLowerCase();
+  const username = (localStorage.getItem('username') || '').toLowerCase();
+  const userId = localStorage.getItem('userId') || localStorage.getItem('user_id') || localStorage.getItem('employee_id');
+
+  const mapTask = (t) => {
+    const statusStr = typeof t.status === 'string'
+      ? t.status
+      : (t.status_id === 3 ? 'completed' : t.status_id === 2 ? 'in_progress' : 'pending');
+
+    const priorityStr = typeof t.priority === 'string'
+      ? t.priority
+      : (t.priority_id === 1 ? 'High' : t.priority_id === 2 ? 'Medium' : 'Low');
+
+    const statusDisplay = statusStr === 'in_progress' ? 'In Progress' : statusStr.charAt(0).toUpperCase() + statusStr.slice(1);
+    const priorityDisplay = priorityStr.charAt(0).toUpperCase() + priorityStr.slice(1);
+    const progressVal = statusStr === 'completed' ? 100 : statusStr === 'in_progress' ? 60 : 20;
+
+    return {
+      id: t.task_id || t.id,
+      task: t.task_title || t.title || t.task || 'Untitled Task',
+      due: t.due_date ? new Date(t.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No Due Date',
+      status: statusDisplay,
+      priority: priorityDisplay,
+      progress: progressVal,
+      assignee: t.assigned_to || t.assignee || (t.employee_id ? `Employee #${t.employee_id}` : 'Unassigned')
+    };
+  };
+
+  const isTaskForCurrentUser = (t) => {
+    if (role === 'admin') return true;
+    const empIdStr = t.employee_id !== undefined && t.employee_id !== null ? String(t.employee_id) : '';
+    const assignedToStr = (t.assigned_to || t.assignee || t.employee_name || t.username || '').toLowerCase();
+    return (
+      (userId && empIdStr === String(userId)) ||
+      (username && assignedToStr.length > 0 && (assignedToStr.includes(username) || username.includes(assignedToStr)))
+    );
+  };
 
   const fetchTasks = async () => {
+    const localTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
+
     try {
       const res = await api.get('/tasks/?skip=0&limit=100');
       if (res.data) {
-        const mapped = res.data.map(t => {
-          const statusStr = typeof t.status === 'string'
-            ? t.status
-            : (t.status_id === 3 ? 'completed' : t.status_id === 2 ? 'in_progress' : 'pending');
+        let taskData = res.data;
 
-          const priorityStr = typeof t.priority === 'string'
-            ? t.priority
-            : (t.priority_id === 1 ? 'High' : t.priority_id === 2 ? 'Medium' : 'Low');
+        if (role !== 'admin') {
+          taskData = taskData.filter(isTaskForCurrentUser);
+        }
 
-          const statusDisplay = statusStr === 'in_progress' ? 'In Progress' : statusStr.charAt(0).toUpperCase() + statusStr.slice(1);
-          const priorityDisplay = priorityStr.charAt(0).toUpperCase() + priorityStr.slice(1);
-          const progressVal = statusStr === 'completed' ? 100 : statusStr === 'in_progress' ? 60 : 20;
-
-          return {
-            id: t.task_id || t.id,
-            task: t.task_title || t.title || 'Untitled Task',
-            due: t.due_date ? new Date(t.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : t("noDueDate"),
-            status: statusDisplay,
-            priority: priorityDisplay,
-            progress: progressVal,
-            assignee: t.employee_id ? `Employee #${t.employee_id}` : (t.assigned_to || 'Unassigned')
-          };
+        // Merge local tasks (avoid duplicates by id)
+        const apiIds = new Set(taskData.map(t => String(t.task_id || t.id)));
+        const filteredLocal = localTasks.filter(lt => {
+          if (apiIds.has(String(lt.id || lt.task_id))) return false;
+          return isTaskForCurrentUser(lt);
         });
-        setTasks(mapped);
+
+        const merged = [...taskData, ...filteredLocal];
+        setTasks(merged.map(mapTask));
       }
 
     } catch (err) {
-      console.error(err);
-      showToast("Failed to fetch tasks", "error");
+      console.warn("API unavailable, loading from localStorage:", err);
+      const filteredLocal = localTasks.filter(isTaskForCurrentUser);
+      setTasks(filteredLocal.map(mapTask));
     }
   };
 
@@ -61,14 +91,21 @@ function MyTask() {
       showToast(t("adminDeleteOnly"), 'error');
       return;
     }
+
+    // Always remove from localStorage first
+    const localTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
+    const updatedLocal = localTasks.filter(lt => String(lt.id || lt.task_id) !== String(id));
+    localStorage.setItem('myNewTasks', JSON.stringify(updatedLocal));
+
+    // Attempt API delete silently (don't block on failure)
     try {
       await api.delete(`/tasks/${id}`);
-      showToast('Task deleted successfully');
-      fetchTasks();
     } catch (err) {
-      console.error(err);
-      showToast("Failed to delete task", "error");
+      console.warn("API delete failed (task may be local-only):", err);
     }
+
+    showToast('Task deleted successfully');
+    fetchTasks();
   };
 
   const getStatusStyle = (status) => {

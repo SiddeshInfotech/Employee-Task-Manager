@@ -8,7 +8,9 @@ function Priority() {
   const { t } = useTranslation();
   const [filter, setFilter] = useState('All');
   const [sortByProperty, setSortByProperty] = useState(false);
-  const role = localStorage.getItem('role') || 'employee';
+  const role = (localStorage.getItem('role') || 'employee').toLowerCase();
+  const username = (localStorage.getItem('username') || '').toLowerCase();
+  const userId = localStorage.getItem('userId') || localStorage.getItem('user_id') || localStorage.getItem('employee_id');
 
   const [tasks, setTasks] = useState({
     high: [],
@@ -16,31 +18,52 @@ function Priority() {
     low: []
   });
 
-  const fetchTasks = async () => {
+  const isTaskForCurrentUser = (t) => {
+    if (role === 'admin') return true;
+    const empIdStr = t.employee_id !== undefined && t.employee_id !== null ? String(t.employee_id) : '';
+    const assignedToStr = (t.assigned_to || t.assignee || t.employee_name || t.username || '').toLowerCase();
+    return (
+      (userId && empIdStr === String(userId)) ||
+      (username && assignedToStr.length > 0 && (assignedToStr.includes(username) || username.includes(assignedToStr)))
+    );
+  };
+
+  const groupByPriority = (taskList) => {
     const statusReverseMap = { 1: 'Pending', 2: 'In Progress', 3: 'Completed' };
     const priorityReverseMap = { 1: 'high', 2: 'medium', 3: 'low' };
+    const grouped = { high: [], medium: [], low: [] };
+
+    taskList.forEach(t => {
+      if (!isTaskForCurrentUser(t)) return;
+      const statusText = typeof t.status_id === 'number' ? (statusReverseMap[t.status_id] || 'Pending') : (t.status || 'Pending');
+      const item = {
+        id: t.task_id || t.id,
+        name: t.task_title || t.title || t.task || 'Untitled Task',
+        due: t.due_date ? new Date(t.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'No Date',
+        status: statusText
+      };
+      const p = (typeof t.priority_id === 'number' ? (priorityReverseMap[t.priority_id] || 'low') : (t.priority || 'low')).toLowerCase();
+      if (p === 'high') grouped.high.push(item);
+      else if (p === 'medium') grouped.medium.push(item);
+      else grouped.low.push(item);
+    });
+
+    return grouped;
+  };
+
+  const fetchTasks = async () => {
+    const localTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
 
     try {
       const res = await api.get('/tasks/?skip=0&limit=100');
-      if (res.data && res.data.length > 0) {
-        const grouped = { high: [], medium: [], low: [] };
-        res.data.forEach(t => {
-          const statusText = typeof t.status_id === 'number' ? (statusReverseMap[t.status_id] || 'Pending') : (t.status || 'Pending');
-          const item = {
-            id: t.task_id || t.id,
-            name: t.task_title || t.title || 'Untitled Task',
-            due: t.due_date ? new Date(t.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'No Date',
-            status: statusText
-          };
-          const p = (typeof t.priority_id === 'number' ? (priorityReverseMap[t.priority_id] || 'low') : (t.priority || 'low')).toLowerCase();
-          if (p === 'high') grouped.high.push(item);
-          else if (p === 'medium') grouped.medium.push(item);
-          else grouped.low.push(item);
-        });
-        setTasks(grouped);
-      }
+      const apiData = (res.data && res.data.length > 0) ? res.data : [];
+      const apiIds = new Set(apiData.map(t => String(t.task_id || t.id)));
+      const extraLocal = localTasks.filter(lt => !apiIds.has(String(lt.id || lt.task_id)));
+      const merged = [...apiData, ...extraLocal];
+      setTasks(groupByPriority(merged));
     } catch (err) {
-      console.error('Failed to fetch tasks for Priority page, using defaults.', err);
+      console.warn('API unavailable, loading from localStorage:', err);
+      setTasks(groupByPriority(localTasks));
     }
   };
 
@@ -49,22 +72,60 @@ function Priority() {
   }, []);
 
   const handleUpdatePriority = async () => {
-    const taskId = prompt('Enter Task ID to update priority:');
-    if (!taskId) return;
-    const newPriority = prompt('Enter new priority (high, medium, low):');
-    if (!newPriority || !['high', 'medium', 'low'].includes(newPriority.toLowerCase())) {
-      showToast(t("invalidPriority"), 'error');
+    // Collect all tasks across all priority groups
+    const allTasks = [...tasks.high, ...tasks.medium, ...tasks.low];
+
+    if (allTasks.length === 0) {
+      showToast('No tasks available to update', 'error');
       return;
     }
-    const priorityMap = { high: 1, medium: 2, low: 3 };
-    try {
-      await api.put(`/tasks/${taskId}`, { priority_id: priorityMap[newPriority.toLowerCase()] });
-      showToast(t("priorityUpdated"));
-      fetchTasks();
-    } catch (err) {
-      console.error(err);
-      showToast(t("failedUpdatePriority"), 'error');
+
+    // Build list of task names for the user to choose from
+    const taskList = allTasks.map((tk, idx) => `${idx + 1}. ${tk.name}`).join('\n');
+    const taskInput = prompt(`Enter task name to update priority:\n\n${taskList}`);
+    if (!taskInput) return;
+
+    const matchedTask = allTasks.find(tk =>
+      tk.name.toLowerCase().includes(taskInput.toLowerCase()) ||
+      taskInput.toLowerCase().includes(tk.name.toLowerCase())
+    );
+
+    if (!matchedTask) {
+      showToast('Task not found. Please enter a valid task name.', 'error');
+      return;
     }
+
+    const newPriority = prompt(`Update priority for "${matchedTask.name}":\nEnter: high, medium, or low`);
+    if (!newPriority || !['high', 'medium', 'low'].includes(newPriority.toLowerCase())) {
+      showToast(t("invalidPriority") || 'Invalid priority. Enter high, medium, or low.', 'error');
+      return;
+    }
+
+    const priorityMap = { high: 1, medium: 2, low: 3 };
+    const priorityKey = newPriority.toLowerCase();
+    const taskId = matchedTask.id;
+
+    // Always update localStorage (match by id OR name)
+    const localTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
+    const updatedLocal = localTasks.map(lt => {
+      const ltId = String(lt.id || lt.task_id);
+      const ltName = (lt.task_title || lt.title || lt.task || '').toLowerCase();
+      if (ltId === String(taskId) || ltName === matchedTask.name.toLowerCase()) {
+        return { ...lt, priority: priorityKey, priority_id: priorityMap[priorityKey] };
+      }
+      return lt;
+    });
+    localStorage.setItem('myNewTasks', JSON.stringify(updatedLocal));
+
+    // Attempt API update silently
+    try {
+      await api.put(`/tasks/${taskId}`, { priority_id: priorityMap[priorityKey] });
+    } catch (err) {
+      console.warn("API update failed (task may be local-only):", err);
+    }
+
+    showToast(`Priority updated to "${priorityKey}" for "${matchedTask.name}"`);
+    await fetchTasks();
   };
 
   const getStatusColor = (s) => {

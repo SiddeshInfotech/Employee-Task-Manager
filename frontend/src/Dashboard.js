@@ -29,22 +29,67 @@ function Dashboard() {
 
   const username = localStorage.getItem('username') || 'John';
   const role = localStorage.getItem('role') || 'employee';
+  const isAdmin = role.toLowerCase() === 'admin';
 
   useEffect(() => {
-    // GET /dashboard/summary Bearer mount
     const fetchSummary = async () => {
+      // 1. Load localStorage tasks for this user
+      const localTasks = [
+        ...JSON.parse(localStorage.getItem('myNewTasks') || '[]'),
+        ...JSON.parse(localStorage.getItem('myTasks') || '[]')
+      ];
+
+      // Helper to check completion
+      const isDone = (t) => Number(t.status_id) === 3 || String(t.status || '').toLowerCase() === 'completed';
+      const isPending = (t) => Number(t.status_id) === 1 || String(t.status || '').toLowerCase() === 'pending';
+      const isInProgress = (t) => Number(t.status_id) === 2 || String(t.status || '').toLowerCase() === 'in_progress' || String(t.status || '').toLowerCase() === 'inprogress';
+      const isOverdue = (t) => {
+        if (isDone(t)) return false;
+        const due = t.due_date || t.dueDate;
+        return due && new Date(due) < new Date();
+      };
+
       try {
         const res = await api.get('/dashboard/summary');
         if (res.data) {
-          setSummary(res.data);
+          const apiData = res.data;
+          // Merge: use API values if > 0, otherwise compute from localStorage
+          const localTotal = localTasks.length;
+          const localCompleted = localTasks.filter(isDone).length;
+          const localPending = localTasks.filter(isPending).length;
+          const localInProgress = localTasks.filter(isInProgress).length;
+          const localOverdue = localTasks.filter(isOverdue).length;
+
+          setSummary({
+            total_tasks: (apiData.total_tasks || 0) + localTotal,
+            completed_tasks: (apiData.completed_tasks || 0) + localCompleted,
+            pending_tasks: (apiData.pending_tasks || 0) + localPending,
+            in_progress_tasks: (apiData.in_progress_tasks || 0) + localInProgress,
+            overdue_tasks: (apiData.overdue_tasks || 0) + localOverdue,
+            unread_notifications: apiData.unread_notifications || 0
+          });
+          return;
         }
       } catch (err) {
-        console.error('Error fetching summary, using defaults.', err);
+        console.warn('Dashboard API unavailable, using localStorage data.', err);
       }
+
+      // API failed — use purely localStorage counts
+      if (localTasks.length > 0) {
+        setSummary({
+          total_tasks: localTasks.length,
+          completed_tasks: localTasks.filter(isDone).length,
+          pending_tasks: localTasks.filter(isPending).length,
+          in_progress_tasks: localTasks.filter(isInProgress).length,
+          overdue_tasks: localTasks.filter(isOverdue).length,
+          unread_notifications: 0
+        });
+      }
+      // else keep the hardcoded defaults as demo data
     };
 
     const fetchUsers = async () => {
-      if (role === 'admin') {
+      if (isAdmin) {
         try {
           const res = await api.get('/users/');
           if (res.data) setUsers(res.data);
@@ -56,7 +101,7 @@ function Dashboard() {
 
     fetchSummary();
     fetchUsers();
-  }, [role]);
+  }, []);
 
   const handleAddTask = async (e) => {
     e.preventDefault();
@@ -105,12 +150,12 @@ function Dashboard() {
     navigate('/login');
   };
 
-  // Mock data for charts matching the dashboard style
+  // Bar chart data derived from real summary counts
   const barChartData = [
-    { name: t("completed"), value: summary.completed_tasks, color: '#2563eb' },
-    { name: t("pending"), value: summary.pending_tasks, color: '#f59e0b' },
-    { name: t("overdue"), value: summary.overdue_tasks, color: '#ef4444' },
-    { name: t("inProgress"), value: summary.in_progress_tasks || 25, color: '#10b981' }
+    { name: t("completed"), value: summary.completed_tasks || 0, color: '#2563eb' },
+    { name: t("pending"), value: summary.pending_tasks || 0, color: '#f59e0b' },
+    { name: t("overdue"), value: summary.overdue_tasks || 0, color: '#ef4444' },
+    { name: t("inProgress"), value: summary.in_progress_tasks || 0, color: '#10b981' }
   ];
 
   const lineChartData = [
@@ -152,7 +197,6 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* Nav links */}
           <nav className="p-4 flex flex-col gap-1">
             <Link
               to="/dashboard"
@@ -168,7 +212,7 @@ function Dashboard() {
               <CheckSquare className="w-4 h-4 text-slate-900" />
               {t("task")}
             </Link>
-            {role === 'admin' && (
+            {isAdmin && (
               <Link
                 to="/reports"
                 className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-900/15 text-slate-950 font-semibold transition-all text-sm no-underline"
@@ -177,13 +221,15 @@ function Dashboard() {
                 {t("report")}
               </Link>
             )}
-            <Link
-              to="/team"
-              className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-900/15 text-slate-950 font-semibold transition-all text-sm no-underline"
-            >
-              <Users className="w-4 h-4 text-slate-900" />
-              {t("team")}
-            </Link>
+            {isAdmin && (
+              <Link
+                to="/team"
+                className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-900/15 text-slate-950 font-semibold transition-all text-sm no-underline"
+              >
+                <Users className="w-4 h-4 text-slate-900" />
+                {t("team")}
+              </Link>
+            )}
             <Link
               to="/settings"
               className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-900/15 text-slate-950 font-semibold transition-all text-sm no-underline"
@@ -194,7 +240,6 @@ function Dashboard() {
           </nav>
         </div>
 
-        {/* Sidebar Footer */}
         <div className="p-6 border-t border-[#967131] flex items-center gap-3 bg-slate-950/10">
           <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs">
             {role[0].toUpperCase()}
@@ -458,7 +503,7 @@ function Dashboard() {
 
           {/* Action Row Buttons */}
           <div className="flex flex-wrap gap-4 mt-4">
-            {role === 'admin' && (
+            {isAdmin && (
               <button
                 onClick={() => setShowAddTaskModal(true)}
                 className="flex items-center gap-2 px-6 py-3 bg-[#2563eb] hover:bg-blue-700 text-white rounded-xl font-semibold"
@@ -468,7 +513,7 @@ function Dashboard() {
               </button>
             )}
 
-            {role === 'admin' && (
+            {isAdmin && (
               <Link to="/team" className="no-underline">
                 <button className="flex items-center gap-2 px-6 py-3 bg-[#10b981] hover:bg-emerald-700 text-white rounded-xl font-semibold shadow-lg shadow-emerald-500/10 transition-all hover:scale-102">
                   <UserPlus className="w-5 h-5" />
@@ -477,7 +522,7 @@ function Dashboard() {
               </Link>
             )}
 
-            {role === 'admin' && (
+            {isAdmin && (
               <Link to="/reports" className="no-underline">
                 <button className="flex items-center gap-2 px-6 py-3 bg-[#f59e0b] hover:bg-amber-600 text-white rounded-xl font-semibold shadow-lg shadow-amber-500/10 transition-all hover:scale-102">
                   <FileText className="w-5 h-5" />
@@ -566,7 +611,7 @@ function Dashboard() {
                 />
               </div>
 
-              {role === 'admin' && users.length > 0 && (
+              {isAdmin && users.length > 0 && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Assign To User</label>
                   <select

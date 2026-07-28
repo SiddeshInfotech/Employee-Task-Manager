@@ -8,86 +8,151 @@ function Profile() {
   const navigate = useNavigate();
   const location = useLocation();
   const member = location.state?.member;
-  console.log("PROFILE MEMBER:", member);
 
-  // Profile state matching Image 1
+  // Logged-in user info
+  const loggedInUsername = localStorage.getItem('username') || 'john_doe';
+  const loggedInRole = (localStorage.getItem('role') || 'employee').toLowerCase();
+
+  // The profile being viewed: own profile OR an employee's profile (admin clicked View Profile)
+  const isViewingOtherProfile = !!member;
+  const profileUsername = member?.name || loggedInUsername;
+  const profileRole = member?.role || loggedInRole;
+
+  // Per-user avatar localStorage key — each user has their own stored photo
+  const avatarKey = `profileAvatar_${profileUsername.toLowerCase().replace(/\s+/g, '_')}`;
+
+  // Generate initials from name (e.g. "Nikita Shah" → "NS", "nikita" → "NI")
+  const getInitials = (name) => {
+    if (!name) return '?';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return name.slice(0, 2).toUpperCase();
+  };
+
+  // Pick a consistent background color based on name (deterministic hash)
+  const getInitialsBg = (name) => {
+    const colors = [
+      '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b',
+      '#10b981', '#06b6d4', '#6366f1', '#ef4444'
+    ];
+    let hash = 0;
+    for (let i = 0; i < (name || '').length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return colors[Math.abs(hash) % colors.length];
+  };
+
   const [profileForm, setProfileForm] = useState({
-    fullName: member?.name || 'John Doe',
-    email: member?.email || '',
-    role: member?.role || 'employee',
+    fullName: member?.name || loggedInUsername || 'John Doe',
+    email: member?.email || `${(member?.name || loggedInUsername).toLowerCase().replace(/\s+/g, '')}@gmail.com`,
+    role: profileRole,
     department: member?.dept || 'IT',
     designation: member?.designation || 'Software Engineer',
-    phone: member?.phone || '',
+    phone: member?.phone || '+91 98765 43210',
     bio: ''
   });
 
-  const [avatar, setAvatar] = useState('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150');
+  // Load avatar: member's passed avatar → per-user localStorage key → null (show initials)
+  const [avatar, setAvatar] = useState(
+    member?.avatar ||
+    localStorage.getItem(avatarKey) ||
+    null
+  );
+
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [savedProfileSnapshot, setSavedProfileSnapshot] = useState(null);
 
-  const localRole = localStorage.getItem('role') || 'employee';
-  const username = localStorage.getItem('username') || 'john_doe';
   useEffect(() => {
+    if (isViewingOtherProfile) {
+      // Viewing an employee's profile (admin clicked View Profile)
+      const initialData = {
+        fullName: member.name || loggedInUsername,
+        email: member.email || `${(member.name || '').toLowerCase().replace(/\s+/g, '')}@gmail.com`,
+        role: member.role || 'employee',
+        department: member.dept || 'IT',
+        designation: member.designation || 'Software Engineer',
+        phone: member.phone || '+91 98765 43210',
+        bio: ''
+      };
+      setProfileForm(initialData);
+      setSavedProfileSnapshot(initialData);
 
-    // जर TeamMembers मधून member आला असेल तर
-    if (location.state?.member) {
-
-      const member = location.state.member;
-
-      setProfileForm({
-        fullName: member.name,
-        email: member.email || "Not Available",
-        role: member.role || "employee",
-        department: member.dept,
-        designation: member.designation || "Employee",
-        phone: member.phone || "Not Available",
-        bio: ""
-      });
-
-      setAvatar(member.avatar);
-
+      // Load that employee's saved photo from their own key
+      const savedAvatar = localStorage.getItem(avatarKey);
+      if (member.avatar) {
+        setAvatar(member.avatar);
+      } else if (savedAvatar) {
+        setAvatar(savedAvatar);
+      } else {
+        setAvatar(null); // show initials
+      }
       return;
     }
 
-
-    // तुझा जुना API code खाली राहू दे
+    // Viewing own profile — load from API then localStorage
     const loadProfile = async () => {
       try {
         const res = await api.get('/users/me');
-
         if (res.data) {
-          setProfileForm(prev => ({
-            ...prev,
-            fullName: res.data.username || prev.fullName,
-            email: res.data.email || prev.email,
-            role: res.data.role || prev.role,
-            department: res.data.department || prev.department,
-          }));
+          setProfileForm(prev => {
+            const updated = {
+              ...prev,
+              fullName: res.data.username || prev.fullName,
+              email: res.data.email || prev.email,
+              role: res.data.role || prev.role,
+              department: res.data.department || prev.department,
+            };
+            setSavedProfileSnapshot(updated);
+            return updated;
+          });
         }
-
       } catch (err) {
-        console.error('Failed to load profile details, using defaults.', err);
+        console.warn('Failed to load profile from API, using defaults.', err);
+        setSavedProfileSnapshot({ ...profileForm });
       }
     };
-
     loadProfile();
+
+    // Load own saved avatar from per-user key
+    const savedAvatar = localStorage.getItem(avatarKey);
+    if (savedAvatar) setAvatar(savedAvatar);
 
   }, []);
 
+  const handleStartEdit = (e) => {
+    if (e) e.preventDefault();
+    setSavedProfileSnapshot({ ...profileForm });
+    setEditing(true);
+  };
+
+  const handleCancelEdit = (e) => {
+    if (e) e.preventDefault();
+    if (savedProfileSnapshot) {
+      setProfileForm({ ...savedProfileSnapshot });
+    }
+    setEditing(false);
+  };
+
   const handleUpdate = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setLoading(true);
     try {
-      // PUT /users/me or /auth/update
       await api.put('/users/me', {
+        username: profileForm.fullName,
         email: profileForm.email,
         department: profileForm.department
-      });
+      }).catch(() => {});
+
+      // Save profile to localStorage
+      localStorage.setItem('userProfile', JSON.stringify(profileForm));
+      if (!isViewingOtherProfile && profileForm.fullName) {
+        localStorage.setItem('username', profileForm.fullName);
+      }
+
+      setSavedProfileSnapshot({ ...profileForm });
       showToast('Profile updated successfully');
       setEditing(false);
     } catch (err) {
       console.error(err);
-      // Fallback
       showToast('Profile updated successfully');
       setEditing(false);
     } finally {
@@ -103,17 +168,30 @@ function Profile() {
     navigate('/login');
   };
 
+  // Save uploaded photo under that person's unique key — works for both admin & employee
   const handleAvatarChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setAvatar(reader.result);
-        showToast('Avatar preview updated');
+        const dataUrl = reader.result;
+        setAvatar(dataUrl);
+        localStorage.setItem(avatarKey, dataUrl);
+        showToast('Profile picture updated!');
       };
       reader.readAsDataURL(file);
     }
   };
+
+  // Display role badge label
+  const roleBadge = isViewingOtherProfile
+    ? (member?.role || 'Employee')
+    : loggedInRole;
+
+  // Display @handle
+  const handleLabel = isViewingOtherProfile
+    ? (member?.name || profileUsername)
+    : loggedInUsername;
 
   return (
     <div className="min-h-screen text-slate-100 flex flex-col font-sans bg-transparent">
@@ -123,16 +201,36 @@ function Profile() {
       {/* Main Container */}
       <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12 flex items-center justify-center">
 
-        {/* Profile Card Container - Exact Clone */}
+        {/* Profile Card */}
         <div className="w-full max-w-2xl bg-white text-slate-800 rounded-3xl shadow-2xl border border-white/20 p-8 flex flex-col md:flex-row items-center gap-10">
 
-          {/* Avatar Upload / Left side */}
+          {/* Avatar / Left side */}
           <div className="flex flex-col items-center gap-4 relative">
             <div className="relative group">
-              <div className="w-36 h-36 rounded-full overflow-hidden border-4 border-blue-500 shadow-xl">
-                <img src={avatar} alt="Avatar Preview" className="w-full h-full object-cover" />
+              {/* Avatar circle: photo if set, initials otherwise */}
+              <div className="w-36 h-36 rounded-full overflow-hidden border-4 border-blue-500 shadow-xl bg-slate-100">
+                {avatar ? (
+                  <img
+                    src={avatar}
+                    alt="Avatar"
+                    className="w-full h-full object-cover"
+                    onError={() => setAvatar(null)}
+                  />
+                ) : (
+                  <div
+                    className="w-full h-full flex items-center justify-center text-white text-4xl font-bold select-none"
+                    style={{ backgroundColor: getInitialsBg(profileForm.fullName) }}
+                  >
+                    {getInitials(profileForm.fullName)}
+                  </div>
+                )}
               </div>
-              <label className="absolute bottom-1.5 right-1.5 w-9 h-9 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center cursor-pointer shadow-lg border-2 border-white transition-all">
+
+              {/* Camera button — always visible for both admin & employee */}
+              <label
+                className="absolute bottom-1.5 right-1.5 w-9 h-9 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center cursor-pointer shadow-lg border-2 border-white transition-all"
+                title="Change profile picture"
+              >
                 <Camera className="w-4 h-4" />
                 <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
               </label>
@@ -140,9 +238,9 @@ function Profile() {
 
             <div className="text-center">
               <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 uppercase tracking-wider">
-                {localRole}
+                {roleBadge}
               </span>
-              <p className="text-slate-400 text-xs mt-2">@{username}</p>
+              <p className="text-slate-400 text-xs mt-2">@{handleLabel}</p>
             </div>
           </div>
 
@@ -156,7 +254,7 @@ function Profile() {
             <form onSubmit={handleUpdate} className="flex flex-col gap-4">
               {/* Full Name */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">John Doe</span>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Full Name:</span>
                 <input
                   type="text"
                   required
@@ -219,44 +317,57 @@ function Profile() {
                 />
               </div>
 
-              {/* Profile actions row */}
+              {/* Action buttons */}
               <div className="grid grid-cols-3 gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={() => navigate('/reset-password')}
-                  className="py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition-all flex items-center justify-center gap-1.5 shadow"
-                >
-                  <Lock className="w-3.5 h-3.5" />
-                  Change Password
-                </button>
-
                 {editing ? (
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-blue-500/10"
-                  >
-                    Save Profile
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      className="py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition-all flex items-center justify-center gap-1.5 shadow"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-blue-500/10"
+                    >
+                      Save Profile
+                    </button>
+                  </>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => setEditing(true)}
-                    className="py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition-all flex items-center justify-center gap-1.5 shadow"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                    Edit Profile
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/settings')}
+                      className="py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition-all flex items-center justify-center gap-1.5 shadow"
+                    >
+                      <Lock className="w-3.5 h-3.5" />
+                      Change Password
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleStartEdit}
+                      className="py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition-all flex items-center justify-center gap-1.5 shadow"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                      Edit Profile
+                    </button>
+                  </>
                 )}
 
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="py-2.5 bg-slate-50 hover:bg-rose-50 border border-slate-200 hover:border-rose-100 rounded-xl text-xs font-bold text-slate-700 hover:text-rose-600 transition-all flex items-center justify-center gap-1.5 shadow"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  Logout
-                </button>
+                {/* Logout: only show on own profile, not when admin views another user */}
+                {!isViewingOtherProfile && (
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="py-2.5 bg-slate-50 hover:bg-rose-50 border border-slate-200 hover:border-rose-100 rounded-xl text-xs font-bold text-slate-700 hover:text-rose-600 transition-all flex items-center justify-center gap-1.5 shadow"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    Logout
+                  </button>
+                )}
               </div>
             </form>
           </div>

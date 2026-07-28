@@ -18,6 +18,9 @@ function Navbar() {
   const role = localStorage.getItem('role') || 'employee';
   const username = localStorage.getItem('username') || 'User';
 
+  // Case-insensitive admin check — works for 'admin', 'Admin', 'ADMIN'
+  const isAdmin = role.toLowerCase() === 'admin';
+
   // Poll notifications every 30 seconds
   useEffect(() => {
     if (!token) return;
@@ -86,12 +89,12 @@ function Navbar() {
   const menuItems = [
     { name: 'Home', key: 'home', path: '/' },
     { name: 'Dashboard', key: 'dashboard', path: '/dashboard' },
+    ...(isAdmin ? [{ name: 'Team Members', key: 'team', path: '/team' }] : []),
     { name: 'My Task', key: 'myTask', path: '/my-task' },
     { name: 'Priority', key: 'priority', path: '/priority' },
     { name: 'Task Status', key: 'taskStatus', path: '/task-status' },
     { name: 'Due Date', key: 'dueDate', path: '/due-date' },
-    ...(role === 'admin' ? [{ name: 'Team Members', key: 'team', path: '/team' }] : []),
-    ...(role === 'admin' ? [{ name: 'Reports', key: 'reports', path: '/reports' }] : []),
+    ...(isAdmin ? [{ name: 'Reports', key: 'reports', path: '/reports' }] : []),
     { name: 'Settings', key: 'settings', path: '/settings' },
   ];
 

@@ -21,6 +21,15 @@ function TeamMembers() {
   });
 
   const role = localStorage.getItem('role') || 'employee';
+  const isAdmin = role.toLowerCase() === 'admin';
+
+  // Guard: redirect non-admin users away from this page immediately
+  useEffect(() => {
+    if (!isAdmin) {
+      showToast('Access denied. Admins only.', 'error');
+      navigate('/dashboard', { replace: true });
+    }
+  }, []);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -236,10 +245,10 @@ function TeamMembers() {
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-xs font-semibold text-slate-600 uppercase mb-2">Department</label><select value={newMemberForm.department} onChange={(e) => setNewMemberForm({ ...newMemberForm, department: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-blue-500"><option value="Marketing">Marketing</option><option value="Development">Development</option><option value="Design">Design</option><option value="HR">HR</option><option value="Support">Support</option></select></div>
-                <div><label className="block text-xs font-semibold text-slate-600 uppercase mb-2">Role</label><select value={newMemberForm.role} onChange={(e) => setNewMemberForm({ ...newMemberForm, role: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-blue-500"><option value="employee">Employee</option><option value="admin">Admin</option></select></div>
+                <div><label className="block text-xs font-semibold text-slate-600 uppercase mb-2">Department</label><select value={newMemberForm.department} onChange={(e) => setNewMemberForm({ ...newMemberForm, department: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-black focus:outline-none focus:border-blue-500" style={{ color: "#000", backgroundColor: "#fff" }}><option style={{ color: "#000", backgroundColor: "#fff" }} value="Marketing">Marketing</option><option style={{ color: "#000", backgroundColor: "#fff" }} value="Development">Development</option><option style={{ color: "#000", backgroundColor: "#fff" }} value="Design">Design</option><option style={{ color: "#000", backgroundColor: "#fff" }} value="HR">HR</option><option style={{ color: "#000", backgroundColor: "#fff" }} value="Support">Support</option></select></div>
+                <div><label className="block text-xs font-semibold text-slate-600 uppercase mb-2">Role</label><select value={newMemberForm.role} onChange={(e) => setNewMemberForm({ ...newMemberForm, role: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-black focus:outline-none focus:border-blue-500" style={{ color: "#000", backgroundColor: "#fff" }}><option style={{ color: "#000", backgroundColor: "#fff" }} value="employee">Employee</option><option style={{ color: "#000", backgroundColor: "#fff" }} value="admin">Admin</option></select></div>
               </div>
-              <div className="flex gap-3 mt-2"><button type="button" onClick={() => { setShowAddModal(false); setAvatarPreview(null); }} className="flex-1 py-3 border border-slate-200 text-slate-600 rounded-xl text-sm font-semibold">Cancel</button><button type="submit" className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold">Create Member</button></div>
+              <div className="flex gap-3 mt-2"><button type="button" onClick={() => { setShowAddModal(false); setAvatarPreview(null); }} className="flex-1 py-3 border border-slate-200 text-slate-600 rounded-xl text-sm font-semibold">Cancel</button><button type="submit" className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold">Submit</button></div>
             </form>
           </div>
         </div>
