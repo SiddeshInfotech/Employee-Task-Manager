@@ -1,28 +1,19 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import Navbar from './Navbar';
 import api, { showToast } from './axios';
 
 function Priority() {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState('All');
   const [sortByProperty, setSortByProperty] = useState(false);
   const role = localStorage.getItem('role') || 'employee';
+
   const [tasks, setTasks] = useState({
-    high: [
-      { id: 1, name: 'Critical Bug Fix', due: 'May 24', status: 'In Progress' },
-      { id: 2, name: 'Server Outage', due: 'May 23', status: 'Pending' },
-      { id: 3, name: 'Client Presentation', due: 'May 25', status: 'Pending' },
-    ],
-    medium: [
-      { id: 4, name: 'UI Enhancement', due: 'May 28', status: 'In Progress' },
-      { id: 5, name: 'Content Update', due: 'May 27', status: 'Completed' },
-      { id: 6, name: 'QA Testing', due: 'May 30', status: 'Pending' },
-    ],
-    low: [
-      { id: 7, name: 'Backup Cleanup', due: 'June 5', status: 'On Hold' },
-      { id: 8, name: 'Internal Audit', due: 'June 10', status: 'Pending' },
-      { id: 9, name: 'Documentation Review', due: 'June 15', status: 'Completed' },
-    ]
+    high: [],
+    medium: [],
+    low: []
   });
 
   const fetchTasks = async () => {
@@ -62,17 +53,17 @@ function Priority() {
     if (!taskId) return;
     const newPriority = prompt('Enter new priority (high, medium, low):');
     if (!newPriority || !['high', 'medium', 'low'].includes(newPriority.toLowerCase())) {
-      showToast('Invalid priority entered.', 'error');
+      showToast(t("invalidPriority"), 'error');
       return;
     }
     const priorityMap = { high: 1, medium: 2, low: 3 };
     try {
       await api.put(`/tasks/${taskId}`, { priority_id: priorityMap[newPriority.toLowerCase()] });
-      showToast('Priority updated successfully');
+      showToast(t("priorityUpdated"));
       fetchTasks();
     } catch (err) {
       console.error(err);
-      showToast('Failed to update priority', 'error');
+      showToast(t("failedUpdatePriority"), 'error');
     }
   };
 
@@ -97,7 +88,7 @@ function Priority() {
 
         {/* Header Title Card */}
         <div className="bg-[#0f172a]/60 border border-slate-800 p-6 rounded-2xl backdrop-blur-md shadow-xl text-center">
-          <h2 className="text-3xl font-bold text-white">Priority Management</h2>
+          <h2 className="text-3xl font-bold text-white">{t("priorityManagement")}</h2>
         </div>
 
         {/* Toolbar filter */}
@@ -107,10 +98,10 @@ function Priority() {
             onChange={(e) => setFilter(e.target.value)}
             className="px-4 py-2 bg-slate-900 border border-slate-850 rounded-xl text-xs text-white focus:outline-none"
           >
-            <option value="All">Filter All</option>
-            <option value="High">Filter High</option>
-            <option value="Medium">Filter Medium</option>
-            <option value="Low">Filter Low</option>
+            <option value="All">{t("filterAll")}</option>
+            <option value="High">{t("filterHigh")}</option>
+            <option value="Medium">{t("filterMedium")}</option>
+            <option value="Low">{t("filterLow")}</option>
           </select>
 
           <button
@@ -118,7 +109,7 @@ function Priority() {
             className={`px-4 py-2 border rounded-xl text-xs font-semibold transition-all ${sortByProperty ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-900 border-slate-850 text-slate-300'
               }`}
           >
-            Sort By Property
+            {t("sortByProperty")}
           </button>
         </div>
 
@@ -128,16 +119,16 @@ function Priority() {
           {(filter === 'All' || filter === 'High') && (
             <div className="bg-slate-900/40 border border-slate-850 p-4 rounded-2xl backdrop-blur-md">
               <div className="bg-rose-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl text-center mb-4 shadow">
-                High Priority Tasks ({tasks.high.length})
+                {t("highPriorityTasks")} ({tasks.high.length})
               </div>
               <div className="flex flex-col gap-3">
-                {tasks.high.map((t) => (
-                  <div key={t.id} className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100">
-                    <h4 className="font-bold text-sm text-slate-900">{t.name}</h4>
+                {tasks.high.map((tItem) => (
+                  <div key={tItem.id} className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100">
+                    <h4 className="font-bold text-sm text-slate-900">{tItem.name}</h4>
                     <div className="flex items-center justify-between text-xs mt-3">
-                      <span className="text-slate-400 font-medium">Due: {t.due}</span>
-                      <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] ${getStatusColor(t.status)}`}>
-                        {t.status}
+                      <span className="text-slate-400 font-medium">{t("dueDate")}: {tItem.due}</span>
+                      <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] ${getStatusColor(tItem.status)}`}>
+                        {tItem.status}
                       </span>
                     </div>
                   </div>
@@ -150,16 +141,16 @@ function Priority() {
           {(filter === 'All' || filter === 'Medium') && (
             <div className="bg-slate-900/40 border border-slate-850 p-4 rounded-2xl backdrop-blur-md">
               <div className="bg-amber-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl text-center mb-4 shadow">
-                Medium Priority Tasks ({tasks.medium.length})
+                {t("mediumPriorityTasks")} ({tasks.medium.length})
               </div>
               <div className="flex flex-col gap-3">
-                {tasks.medium.map((t) => (
-                  <div key={t.id} className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100">
-                    <h4 className="font-bold text-sm text-slate-900">{t.name}</h4>
+                {tasks.medium.map((tItem) => (
+                  <div key={tItem.id} className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100">
+                    <h4 className="font-bold text-sm text-slate-900">{tItem.name}</h4>
                     <div className="flex items-center justify-between text-xs mt-3">
-                      <span className="text-slate-400 font-medium">Due: {t.due}</span>
-                      <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] ${getStatusColor(t.status)}`}>
-                        {t.status}
+                      <span className="text-slate-400 font-medium">{t("dueDate")}: {tItem.due}</span>
+                      <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] ${getStatusColor(tItem.status)}`}>
+                        {tItem.status}
                       </span>
                     </div>
                   </div>
@@ -172,16 +163,16 @@ function Priority() {
           {(filter === 'All' || filter === 'Low') && (
             <div className="bg-slate-900/40 border border-slate-850 p-4 rounded-2xl backdrop-blur-md">
               <div className="bg-emerald-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl text-center mb-4 shadow">
-                Low Priority Tasks ({tasks.low.length})
+                {t("lowPriorityTasks")} ({tasks.low.length})
               </div>
               <div className="flex flex-col gap-3">
-                {tasks.low.map((t) => (
-                  <div key={t.id} className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100">
-                    <h4 className="font-bold text-sm text-slate-900">{t.name}</h4>
+                {tasks.low.map((tItem) => (
+                  <div key={tItem.id} className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100">
+                    <h4 className="font-bold text-sm text-slate-900">{tItem.name}</h4>
                     <div className="flex items-center justify-between text-xs mt-3">
-                      <span className="text-slate-400 font-medium">Due: {t.due}</span>
-                      <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] ${getStatusColor(t.status)}`}>
-                        {t.status}
+                      <span className="text-slate-400 font-medium">{t("dueDate")}: {tItem.due}</span>
+                      <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] ${getStatusColor(tItem.status)}`}>
+                        {tItem.status}
                       </span>
                     </div>
                   </div>
@@ -198,7 +189,7 @@ function Priority() {
               onClick={handleUpdatePriority}
               className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/25"
             >
-              Update Priority
+              {t("updatePriority")}
             </button>
           </div>
         )}
@@ -206,7 +197,7 @@ function Priority() {
 
       {/* Footer */}
       <footer className="w-full bg-[#090d16] border-t border-slate-900 py-8 px-6 text-center text-xs text-slate-500 mt-auto">
-        <p className="mb-2">© 2026 Employee Task Tracker System | All Rights Reserved</p>
+        <p className="mb-2">{t("footerText")}</p>
         <p><span className="text-slate-400 font-semibold"></span></p>
       </footer>
     </div>

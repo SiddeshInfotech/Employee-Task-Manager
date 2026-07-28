@@ -1,29 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import Navbar from './Navbar';
 import api, { showToast } from './axios';
 
 function TaskStatus() {
+  const { t } = useTranslation();
   const [tasks, setTasks] = useState({
-    pending: [
-      { id: 1, name: 'Design Homepage', due: 'May 25', status: 'Pending' },
-      { id: 2, name: 'Report Analysis', due: 'May 25', status: 'Pending' },
-      { id: 3, name: 'Client Feedback', due: 'May 25', status: 'Pending' },
-    ],
-    inProgress: [
-      { id: 4, name: 'API Development', due: 'May 28', status: 'In Progress' },
-      { id: 5, name: 'UI Testing', due: 'May 26', status: 'In Progress' },
-      { id: 6, name: 'Marketing Campaign', due: 'May 27', status: 'In Progress' },
-    ],
-    completed: [
-      { id: 7, name: 'Logo Design', due: 'Completed', status: 'Completed' },
-      { id: 8, name: 'Database Migration', due: 'Completed', status: 'Completed' },
-      { id: 9, name: 'Code Review', due: 'Completed', status: 'Completed' },
-    ],
-    onHold: [
-      { id: 10, name: 'Server Upgrade', due: 'On Hold', status: 'On Hold' },
-      { id: 11, name: 'Budget Planning', due: 'On Hold', status: 'On Hold' },
-      { id: 12, name: 'App Prototype', due: 'On Hold', status: 'On Hold' },
-    ]
+    pending: [],
+    inProgress: [],
+    completed: [],
+    onHold: []
   });
 
   const role = localStorage.getItem('role') || 'employee';
@@ -33,26 +19,57 @@ function TaskStatus() {
 
     try {
       const res = await api.get('/tasks/?skip=0&limit=100');
+
+      const grouped = {
+        pending: [],
+        inProgress: [],
+        completed: [],
+        onHold: []
+      };
+
       if (res.data && res.data.length > 0) {
-        const grouped = { pending: [], inProgress: [], completed: [], onHold: [] };
         res.data.forEach(t => {
-          const statusKey = typeof t.status_id === 'number' ? (statusReverseMap[t.status_id] || 'pending') : (t.status || 'pending').toLowerCase().replace(' ', '').replace('_', '');
-          const statusDisplay = statusKey === 'inprogress' ? 'In Progress' : statusKey === 'onhold' ? 'On Hold' : statusKey.charAt(0).toUpperCase() + statusKey.slice(1);
+          const statusKey =
+            typeof t.status_id === 'number'
+              ? (statusReverseMap[t.status_id] || 'pending')
+              : (t.status || 'pending')
+                .toLowerCase()
+                .replace(' ', '')
+                .replace('_', '');
+
+          const statusDisplay =
+            statusKey === 'inprogress'
+              ? 'In Progress'
+              : statusKey === 'onhold'
+                ? 'On Hold'
+                : statusKey.charAt(0).toUpperCase() + statusKey.slice(1);
+
           const item = {
             id: t.task_id || t.id,
             name: t.task_title || t.title || 'Untitled Task',
-            due: t.due_date ? new Date(t.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'No Date',
+            due: t.due_date
+              ? new Date(t.due_date).toLocaleDateString(
+                'en-US',
+                { month: 'short', day: 'numeric' }
+              )
+              : 'No Date',
             status: statusDisplay
           };
-          if (statusKey === 'pending') grouped.pending.push(item);
-          else if (statusKey === 'inprogress') grouped.inProgress.push(item);
-          else if (statusKey === 'completed') grouped.completed.push(item);
-          else grouped.onHold.push(item);
+
+          if (statusKey === 'pending')
+            grouped.pending.push(item);
+          else if (statusKey === 'inprogress')
+            grouped.inProgress.push(item);
+          else if (statusKey === 'completed')
+            grouped.completed.push(item);
+          else
+            grouped.onHold.push(item);
         });
-        setTasks(grouped);
       }
+
+      setTasks(grouped);
     } catch (err) {
-      console.error('Failed to fetch tasks for Status page, using defaults.', err);
+      console.error(err);
     }
   };
 
@@ -102,10 +119,10 @@ function TaskStatus() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-12 flex flex-col gap-6">
-        
+
         {/* Header Title Card */}
         <div className="bg-[#0f172a]/60 border border-slate-800 p-6 rounded-2xl backdrop-blur-md shadow-xl text-center">
-          <h2 className="text-3xl font-bold text-white">Task Status Management</h2>
+          <h2 className="text-3xl font-bold text-white">{t("taskStatusManagement")}</h2>
         </div>
 
         {/* Columns Grid */}
@@ -113,16 +130,16 @@ function TaskStatus() {
           {/* Column 1: Pending */}
           <div className="bg-slate-900/40 border border-slate-850 p-4 rounded-2xl backdrop-blur-md">
             <div className="bg-rose-600 text-white font-bold text-sm px-4 py-2.5 rounded-xl text-center mb-4 shadow">
-              Pending Tasks ({tasks.pending.length})
+              {t("pendingTasks")} ({tasks.pending.length})
             </div>
             <div className="flex flex-col gap-3">
-              {tasks.pending.map((t) => (
-                <div key={t.id} className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100">
-                  <h4 className="font-bold text-sm text-slate-900">{t.name}</h4>
+              {tasks.pending.map((item) => (
+                <div key={item.id} className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100">
+                  <h4 className="font-bold text-sm text-slate-900">{item.name}</h4>
                   <div className="flex items-center justify-between text-xs mt-3">
-                    <span className="text-slate-400 font-medium">Due: {t.due}</span>
-                    <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] ${getStatusBadgeStyle(t.status)}`}>
-                      {t.status}
+                    <span className="text-slate-400 font-medium">{t("due")}: {item.due}</span>
+                    <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] ${getStatusBadgeStyle(item.status)}`}>
+                      {item.status === 'Pending' ? t("pending") : item.status === 'In Progress' ? t("inProgress") : item.status === 'Completed' ? t("completed") : item.status === 'On Hold' ? t("onHold") : item.status}
                     </span>
                   </div>
                 </div>
@@ -133,16 +150,16 @@ function TaskStatus() {
           {/* Column 2: In Progress */}
           <div className="bg-slate-900/40 border border-slate-850 p-4 rounded-2xl backdrop-blur-md">
             <div className="bg-amber-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl text-center mb-4 shadow">
-              In Progress Tasks ({tasks.inProgress.length})
+              {t("inProgressTasks")} ({tasks.inProgress.length})
             </div>
             <div className="flex flex-col gap-3">
-              {tasks.inProgress.map((t) => (
-                <div key={t.id} className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100">
-                  <h4 className="font-bold text-sm text-slate-900">{t.name}</h4>
+              {tasks.inProgress.map((item) => (
+                <div key={item.id} className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100">
+                  <h4 className="font-bold text-sm text-slate-900">{item.name}</h4>
                   <div className="flex items-center justify-between text-xs mt-3">
-                    <span className="text-slate-400 font-medium">Due: {t.due}</span>
-                    <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] ${getStatusBadgeStyle(t.status)}`}>
-                      {t.status}
+                    <span className="text-slate-400 font-medium">{t("due")}: {item.due}</span>
+                    <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] ${getStatusBadgeStyle(item.status)}`}>
+                      {item.status === 'Pending' ? t("pending") : item.status === 'In Progress' ? t("inProgress") : item.status === 'Completed' ? t("completed") : item.status === 'On Hold' ? t("onHold") : item.status}
                     </span>
                   </div>
                 </div>
@@ -153,16 +170,16 @@ function TaskStatus() {
           {/* Column 3: Completed */}
           <div className="bg-slate-900/40 border border-slate-850 p-4 rounded-2xl backdrop-blur-md">
             <div className="bg-emerald-600 text-white font-bold text-sm px-4 py-2.5 rounded-xl text-center mb-4 shadow">
-              Completed Tasks ({tasks.completed.length})
+              {t("completedTasks")} ({tasks.completed.length})
             </div>
             <div className="flex flex-col gap-3">
-              {tasks.completed.map((t) => (
-                <div key={t.id} className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100">
-                  <h4 className="font-bold text-sm text-slate-900">{t.name}</h4>
+              {tasks.completed.map((item) => (
+                <div key={item.id} className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100">
+                  <h4 className="font-bold text-sm text-slate-900">{item.name}</h4>
                   <div className="flex items-center justify-between text-xs mt-3">
-                    <span className="text-slate-400 font-medium">Due: {t.due}</span>
-                    <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] ${getStatusBadgeStyle(t.status)}`}>
-                      {t.status}
+                    <span className="text-slate-400 font-medium">{t("due")}: {item.due}</span>
+                    <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] ${getStatusBadgeStyle(item.status)}`}>
+                      {item.status === 'Pending' ? t("pending") : item.status === 'In Progress' ? t("inProgress") : item.status === 'Completed' ? t("completed") : item.status === 'On Hold' ? t("onHold") : item.status}
                     </span>
                   </div>
                 </div>
@@ -173,16 +190,16 @@ function TaskStatus() {
           {/* Column 4: On Hold */}
           <div className="bg-slate-900/40 border border-slate-850 p-4 rounded-2xl backdrop-blur-md">
             <div className="bg-slate-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl text-center mb-4 shadow">
-              On Hold Tasks ({tasks.onHold.length})
+              {t("onHoldTasks")} ({tasks.onHold.length})
             </div>
             <div className="flex flex-col gap-3">
-              {tasks.onHold.map((t) => (
-                <div key={t.id} className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100">
-                  <h4 className="font-bold text-sm text-slate-900">{t.name}</h4>
+              {tasks.onHold.map((item) => (
+                <div key={item.id} className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100">
+                  <h4 className="font-bold text-sm text-slate-900">{item.name}</h4>
                   <div className="flex items-center justify-between text-xs mt-3">
-                    <span className="text-slate-400 font-medium">Due: {t.due}</span>
-                    <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] ${getStatusBadgeStyle(t.status)}`}>
-                      {t.status}
+                    <span className="text-slate-400 font-medium">{t("due")}: {item.due}</span>
+                    <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] ${getStatusBadgeStyle(item.status)}`}>
+                      {item.status === 'Pending' ? t("pending") : item.status === 'In Progress' ? t("inProgress") : item.status === 'Completed' ? t("completed") : item.status === 'On Hold' ? t("onHold") : item.status}
                     </span>
                   </div>
                 </div>
@@ -192,19 +209,22 @@ function TaskStatus() {
         </div>
 
         {/* Update button */}
-        <div className="flex justify-center mt-8">
-          <button
-            onClick={handleUpdateStatus}
-            className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/25"
-          >
-            Update Status
-          </button>
-        </div>
+        {/* Update button */}
+        {role === 'admin' && (
+          <div className="flex justify-center mt-8">
+            <button
+              onClick={handleUpdateStatus}
+              className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/25"
+            >
+              {t("updateStatus")}
+            </button>
+          </div>
+        )}
       </main>
 
       {/* Footer */}
       <footer className="w-full bg-[#090d16] border-t border-slate-900 py-8 px-6 text-center text-xs text-slate-500 mt-auto">
-        <p className="mb-2">© 2026 Employee Task Tracker System | All Rights Reserved</p>
+        <p className="mb-2">{t("footerText")}</p>
         <p><span className="text-slate-400 font-semibold"></span></p>
       </footer>
     </div>
