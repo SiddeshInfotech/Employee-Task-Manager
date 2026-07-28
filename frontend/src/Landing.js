@@ -1,28 +1,38 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Layers } from 'lucide-react';
+import Lottie from 'lottie-react';
 
-// Reusable animation variants
-const fadeUp = {
-  hidden: { opacity: 0, y: 40 },
-  visible: { opacity: 1, y: 0 }
-};
+// Animation variants
+const fadeUp = { hidden: { opacity: 0, y: 40 }, visible: { opacity: 1, y: 0 } };
+const fadeIn = { hidden: { opacity: 0 }, visible: { opacity: 1 } };
+const scaleIn = { hidden: { opacity: 0, scale: 0.85 }, visible: { opacity: 1, scale: 1 } };
+const staggerContainer = { hidden: {}, visible: { transition: { staggerChildren: 0.12 } } };
 
-const fadeIn = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1 }
-};
+// Fetches Lottie JSON from URL and renders with lottie-react (no web component / no CDN script)
+function LottieAnim({ src, width = 160, height = 160, style = {} }) {
+  const [animData, setAnimData] = useState(null);
 
-const scaleIn = {
-  hidden: { opacity: 0, scale: 0.85 },
-  visible: { opacity: 1, scale: 1 }
-};
+  useEffect(() => {
+    let cancelled = false;
+    fetch(src)
+      .then(r => r.json())
+      .then(data => { if (!cancelled) setAnimData(data); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [src]);
 
-const staggerContainer = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.12 } }
-};
+  if (!animData) return <div style={{ width, height, ...style }} />;
+  return (
+    <Lottie
+      animationData={animData}
+      loop
+      autoplay
+      style={{ width, height, ...style }}
+    />
+  );
+}
 
 function Landing() {
   const navigate = useNavigate();
@@ -87,59 +97,26 @@ function Landing() {
       {/* Hero */}
       <main id="home" className="relative z-10 max-w-7xl mx-auto w-full px-6 py-20 flex flex-col lg:flex-row items-center gap-12">
         <div className="flex-1">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7 }}
-          >
+          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}>
             <h2 className="text-5xl lg:text-6xl font-extrabold leading-[1.1] mb-6">
               Manage Tasks.<br />
-              <motion.span
-                className="text-blue-500"
-                initial={{ opacity: 0, x: -30 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3, duration: 0.6 }}
-              >
+              <motion.span className="text-blue-500" initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3, duration: 0.6 }}>
                 Boost Productivity.
               </motion.span><br />
-              <motion.span
-                initial={{ opacity: 0, x: -30 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.5, duration: 0.6 }}
-              >
+              <motion.span initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5, duration: 0.6 }}>
                 Achieve More.
               </motion.span>
             </h2>
-            <motion.p
-              className="text-white/60 max-w-lg mb-8 text-sm leading-relaxed"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.7 }}
-            >
+            <motion.p className="text-white/60 max-w-lg mb-8 text-sm leading-relaxed" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }}>
               Employee Task Tracker helps you organize tasks, manage your team, set priorities and track progress in one place.
             </motion.p>
           </motion.div>
 
-          <motion.div
-            className="flex gap-4"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.9, duration: 0.5 }}
-          >
-            <motion.button
-              whileHover={{ scale: 1.06, boxShadow: '0 0 20px rgba(37,99,235,0.5)' }}
-              whileTap={{ scale: 0.96 }}
-              onClick={() => navigate('/login')}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm flex items-center gap-2"
-            >
+          <motion.div className="flex gap-4" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.9, duration: 0.5 }}>
+            <motion.button whileHover={{ scale: 1.06, boxShadow: '0 0 20px rgba(37,99,235,0.5)' }} whileTap={{ scale: 0.96 }} onClick={() => navigate('/login')} className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm flex items-center gap-2">
               🚀 Get Started
             </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.06, backgroundColor: 'rgba(255,255,255,0.1)' }}
-              whileTap={{ scale: 0.96 }}
-              onClick={handleDashboardClick}
-              className="px-6 py-3 bg-transparent border border-white/20 hover:bg-white/10 text-white rounded-lg font-semibold text-sm flex items-center gap-2"
-            >
+            <motion.button whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.96 }} onClick={handleDashboardClick} className="px-6 py-3 bg-transparent border border-white/20 hover:bg-white/10 text-white rounded-lg font-semibold text-sm flex items-center gap-2">
               ▶ View Dashboard
             </motion.button>
           </motion.div>
@@ -147,12 +124,7 @@ function Landing() {
 
         {/* Laptop Mockup */}
         <div className="flex-1 w-full max-w-[600px]">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.88, y: 30 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ duration: 0.9, ease: 'easeOut' }}
-            className="relative"
-          >
+          <motion.div initial={{ opacity: 0, scale: 0.88, y: 30 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ duration: 0.9, ease: 'easeOut' }} className="relative">
             <div className="rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-[#1a1d24] p-2">
               <div className="bg-[#0f1115] rounded-xl overflow-hidden aspect-[16/10] border border-white/5">
                 <div className="bg-[#1e222b] px-4 py-3 flex items-center justify-between border-b border-white/5">
@@ -161,13 +133,7 @@ function Landing() {
                 </div>
                 <div className="p-4 grid grid-cols-4 gap-2">
                   {[['Total','120','text-blue-400'],['Completed','96','text-green-400'],['Pending','18','text-orange-400'],['Overdue','6','text-red-400']].map(([label, val, color], i) => (
-                    <motion.div
-                      key={label}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 1 + i * 0.1 }}
-                      className="bg-[#252a35] p-3 rounded-lg text-center"
-                    >
+                    <motion.div key={label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1 + i * 0.1 }} className="bg-[#252a35] p-3 rounded-lg text-center">
                       <div className="text-[10px] text-white/50">{label}</div>
                       <div className={`font-bold ${color}`}>{val}</div>
                     </motion.div>
@@ -176,13 +142,7 @@ function Landing() {
                 <div className="px-4 pb-4">
                   <div className="bg-[#252a35] p-3 rounded-lg h-24 flex items-end justify-around">
                     {[60,90,40,70].map((h, i) => (
-                      <motion.div
-                        key={i}
-                        className={`w-1/5 rounded-t ${['bg-blue-600/50','bg-blue-500','bg-blue-400','bg-blue-300'][i]}`}
-                        initial={{ height: 0 }}
-                        animate={{ height: `${h}%` }}
-                        transition={{ delay: 1.2 + i * 0.1, duration: 0.5 }}
-                      />
+                      <motion.div key={i} className={`w-1/5 rounded-t ${['bg-blue-600/50','bg-blue-500','bg-blue-400','bg-blue-300'][i]}`} initial={{ height: 0 }} animate={{ height: `${h}%` }} transition={{ delay: 1.2 + i * 0.1, duration: 0.5 }} />
                     ))}
                   </div>
                 </div>
@@ -194,29 +154,61 @@ function Landing() {
         </div>
       </main>
 
-      {/* Stats Cards */}
-      <section className="relative z-10 max-w-7xl mx-auto w-full px-6 pb-12">
+      {/* ── Lottie Animation Strip: Task Manager & Team Work ── */}
+      <section className="relative z-10 max-w-7xl mx-auto w-full px-6 py-10">
         <motion.div
-          className="grid grid-cols-2 lg:grid-cols-5 gap-4"
+          className="grid grid-cols-1 md:grid-cols-3 gap-6"
           variants={staggerContainer}
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, amount: 0.3 }}
+          viewport={{ once: true, amount: 0.2 }}
         >
+          {/* Task Management Animation */}
+          <motion.div variants={scaleIn} transition={{ duration: 0.6 }} className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col items-center gap-3">
+            <LottieAnim
+              src="https://assets10.lottiefiles.com/packages/lf20_wd1udlcz.json"
+              width="160px"
+              height="160px"
+            />
+            <h3 className="font-bold text-sm text-center">Smart Task Management</h3>
+            <p className="text-xs text-white/50 text-center">Create, assign and track tasks with ease from a single dashboard.</p>
+          </motion.div>
+
+          {/* Team Collaboration Animation */}
+          <motion.div variants={scaleIn} transition={{ duration: 0.6 }} className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col items-center gap-3">
+            <LottieAnim
+              src="https://assets9.lottiefiles.com/packages/lf20_w51pcehl.json"
+              width="160px"
+              height="160px"
+            />
+            <h3 className="font-bold text-sm text-center">Team Collaboration</h3>
+            <p className="text-xs text-white/50 text-center">Connect your team and manage employee performance in real time.</p>
+          </motion.div>
+
+          {/* Analytics Animation */}
+          <motion.div variants={scaleIn} transition={{ duration: 0.6 }} className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col items-center gap-3">
+            <LottieAnim
+              src="https://assets3.lottiefiles.com/packages/lf20_qp1q7mct.json"
+              width="160px"
+              height="160px"
+            />
+            <h3 className="font-bold text-sm text-center">Reports & Analytics</h3>
+            <p className="text-xs text-white/50 text-center">Visualize productivity trends with beautiful real-time charts.</p>
+          </motion.div>
+        </motion.div>
+      </section>
+
+      {/* Stats Cards */}
+      <section className="relative z-10 max-w-7xl mx-auto w-full px-6 pb-12">
+        <motion.div className="grid grid-cols-2 lg:grid-cols-5 gap-4" variants={staggerContainer} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.3 }}>
           {[
-            { icon: '📋', bg: 'bg-blue-600', rounded: 'rounded-lg', label: 'Total Tasks', val: '120', sub: 'Tasks assigned' },
-            { icon: '✓',  bg: 'bg-green-600', rounded: 'rounded-full', label: 'Completed', val: '96', sub: 'Tasks completed' },
-            { icon: '⏱', bg: 'bg-orange-500', rounded: 'rounded-full', label: 'Pending', val: '18', sub: 'Tasks pending' },
-            { icon: '⚠', bg: 'bg-red-600', rounded: 'rounded-lg', label: 'Overdue', val: '6', sub: 'Tasks overdue' },
-            { icon: '👥', bg: 'bg-purple-600', rounded: 'rounded-full', label: 'Team Members', val: '25', sub: 'Active members' },
+            { icon: '📋', bg: 'bg-blue-600',   rounded: 'rounded-lg',  label: 'Total Tasks',   val: '120', sub: 'Tasks assigned' },
+            { icon: '✓',  bg: 'bg-green-600',  rounded: 'rounded-full', label: 'Completed',     val: '96',  sub: 'Tasks completed' },
+            { icon: '⏱', bg: 'bg-orange-500', rounded: 'rounded-full', label: 'Pending',       val: '18',  sub: 'Tasks pending' },
+            { icon: '⚠', bg: 'bg-red-600',    rounded: 'rounded-lg',  label: 'Overdue',       val: '6',   sub: 'Tasks overdue' },
+            { icon: '👥', bg: 'bg-purple-600', rounded: 'rounded-full', label: 'Team Members',  val: '25',  sub: 'Active members' },
           ].map(({ icon, bg, rounded, label, val, sub }) => (
-            <motion.div
-              key={label}
-              variants={fadeUp}
-              transition={{ duration: 0.5 }}
-              whileHover={{ scale: 1.05, borderColor: 'rgba(255,255,255,0.25)' }}
-              className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4 flex items-center gap-3 cursor-default"
-            >
+            <motion.div key={label} variants={fadeUp} transition={{ duration: 0.5 }} whileHover={{ scale: 1.05 }} className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4 flex items-center gap-3 cursor-default">
               <div className={`w-10 h-10 ${bg} ${rounded} flex items-center justify-center`}>{icon}</div>
               <div>
                 <div className="text-xs text-white/50">{label}</div>
@@ -230,38 +222,19 @@ function Landing() {
 
       {/* Features */}
       <section id="features" className="relative z-10 max-w-7xl mx-auto w-full px-6 py-16">
-        <motion.h2
-          className="text-center text-2xl font-bold mb-10"
-          variants={fadeUp}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-        >
+        <motion.h2 className="text-center text-2xl font-bold mb-10" variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true }} transition={{ duration: 0.5 }}>
           Our Key Features
         </motion.h2>
-        <motion.div
-          className="grid grid-cols-1 md:grid-cols-3 gap-4"
-          variants={staggerContainer}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.2 }}
-        >
+        <motion.div className="grid grid-cols-1 md:grid-cols-3 gap-4" variants={staggerContainer} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }}>
           {[
-            { icon: '📋', bg: 'bg-blue-600',   title: 'Task Management',   desc: 'Create, assign and track tasks efficiently in real-time.' },
+            { icon: '📋', bg: 'bg-blue-600',   title: 'Task Management',    desc: 'Create, assign and track tasks efficiently in real-time.' },
             { icon: '🏆', bg: 'bg-green-600',  title: 'Priority Management', desc: 'Set task priorities to focus on what matters most.' },
-            { icon: '⏰', bg: 'bg-orange-500', title: 'Due Date Reminder',  desc: 'Set clear timelines and track remaining days.' },
-            { icon: '👥', bg: 'bg-purple-600', title: 'Team Management',    desc: 'Manage your team and monitor their progress.' },
+            { icon: '⏰', bg: 'bg-orange-500', title: 'Due Date Reminder',   desc: 'Set clear timelines and track remaining days.' },
+            { icon: '👥', bg: 'bg-purple-600', title: 'Team Management',     desc: 'Manage your team and monitor their progress.' },
             { icon: '📊', bg: 'bg-blue-500',   title: 'Reports & Analytics', desc: 'Visualize team performance with analytics.' },
-            { icon: '🛡', bg: 'bg-red-500',    title: 'Role-Based Control', desc: 'Secure access with role based permissions.' },
+            { icon: '🛡', bg: 'bg-red-500',    title: 'Role-Based Control',  desc: 'Secure access with role based permissions.' },
           ].map(({ icon, bg, title, desc }) => (
-            <motion.div
-              key={title}
-              variants={fadeUp}
-              transition={{ duration: 0.5 }}
-              whileHover={{ scale: 1.04, backgroundColor: 'rgba(255,255,255,0.08)' }}
-              className="bg-white/5 border border-white/10 p-6 rounded-xl cursor-default"
-            >
+            <motion.div key={title} variants={fadeUp} transition={{ duration: 0.5 }} whileHover={{ scale: 1.04, backgroundColor: 'rgba(255,255,255,0.08)' }} className="bg-white/5 border border-white/10 p-6 rounded-xl cursor-default">
               <div className={`w-8 h-8 ${bg} rounded-full flex items-center justify-center mb-4 text-xs`}>{icon}</div>
               <h3 className="font-bold text-sm mb-2">{title}</h3>
               <p className="text-xs text-white/50">{desc}</p>
@@ -272,78 +245,40 @@ function Landing() {
 
       {/* About Us */}
       <section id="about" className="relative z-10 max-w-7xl mx-auto w-full px-6 py-16">
-        <motion.div
-          className="bg-white/5 border border-white/10 rounded-2xl p-8 lg:p-12"
-          variants={scaleIn}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.3 }}
-          transition={{ duration: 0.6 }}
-        >
-          <motion.h2
-            className="text-2xl font-bold mb-6 text-center"
-            variants={fadeUp}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-          >
-            About Us
-          </motion.h2>
-          <motion.p
-            className="text-white/60 text-sm leading-relaxed max-w-3xl mx-auto text-center"
-            variants={fadeIn}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            transition={{ duration: 0.7, delay: 0.2 }}
-          >
-            Employee Task Tracker is designed to streamline team collaboration and enhance productivity.
-            Our mission is to provide an intuitive and powerful platform for managers and employees alike
-            to organize tasks, set priorities, and track progress seamlessly.
-            Built with modern web technologies, we ensure a fast, secure, and user-friendly experience.
-          </motion.p>
+        <motion.div className="bg-white/5 border border-white/10 rounded-2xl p-8 lg:p-12 flex flex-col lg:flex-row items-center gap-10" variants={scaleIn} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.3 }} transition={{ duration: 0.6 }}>
+          {/* Lottie: office/work animation */}
+          <div className="flex-shrink-0">
+            <LottieAnim src="https://assets2.lottiefiles.com/packages/lf20_xyadoh9h.json" width="200px" height="200px" />
+          </div>
+          <div>
+            <motion.h2 className="text-2xl font-bold mb-4" variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true }} transition={{ duration: 0.5 }}>About Us</motion.h2>
+            <motion.p className="text-white/60 text-sm leading-relaxed" variants={fadeIn} initial="hidden" whileInView="visible" viewport={{ once: true }} transition={{ duration: 0.7, delay: 0.2 }}>
+              Employee Task Tracker is designed to streamline team collaboration and enhance productivity.
+              Our mission is to provide an intuitive and powerful platform for managers and employees alike
+              to organize tasks, set priorities, and track progress seamlessly.
+              Built with modern web technologies, we ensure a fast, secure, and user-friendly experience.
+            </motion.p>
+          </div>
         </motion.div>
       </section>
 
       {/* How It Works */}
       <section id="how-it-works" className="relative z-10 max-w-7xl mx-auto w-full px-6 py-16">
-        <motion.h2
-          className="text-center text-2xl font-bold mb-10"
-          variants={fadeUp}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-        >
+        <motion.h2 className="text-center text-2xl font-bold mb-10" variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true }} transition={{ duration: 0.5 }}>
           How It Works
         </motion.h2>
-        <motion.div
-          className="grid grid-cols-1 md:grid-cols-3 gap-8"
-          variants={staggerContainer}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.3 }}
-        >
+        <motion.div className="grid grid-cols-1 md:grid-cols-3 gap-8" variants={staggerContainer} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.3 }}>
           {[
-            { num: '1', color: 'bg-blue-600/20 text-blue-500',   title: 'Create & Assign',    desc: 'Admins create tasks, set priorities, and assign them to specific team members.' },
-            { num: '2', color: 'bg-green-600/20 text-green-500', title: 'Track Progress',      desc: 'Employees update task statuses from Pending to In Progress and Completed.' },
-            { num: '3', color: 'bg-purple-600/20 text-purple-500', title: 'Monitor & Analyze', desc: 'View real-time dashboards and generate reports to analyze team performance.' },
-          ].map(({ num, color, title, desc }) => (
-            <motion.div
-              key={num}
-              variants={fadeUp}
-              transition={{ duration: 0.5 }}
-              whileHover={{ scale: 1.04 }}
-              className="text-center cursor-default"
-            >
-              <motion.div
-                className={`w-16 h-16 ${color} rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold`}
-                whileHover={{ rotate: 8, scale: 1.1 }}
-                transition={{ type: 'spring', stiffness: 300 }}
-              >
-                {num}
-              </motion.div>
+            { num: '1', color: 'bg-blue-600/20 text-blue-500',     title: 'Create & Assign',    desc: 'Admins create tasks, set priorities, and assign them to specific team members.',
+              lottie: 'https://assets5.lottiefiles.com/packages/lf20_fcfjwiyb.json' },
+            { num: '2', color: 'bg-green-600/20 text-green-500',   title: 'Track Progress',      desc: 'Employees update task statuses from Pending to In Progress and Completed.',
+              lottie: 'https://assets8.lottiefiles.com/packages/lf20_jcikwtux.json' },
+            { num: '3', color: 'bg-purple-600/20 text-purple-500', title: 'Monitor & Analyze',   desc: 'View real-time dashboards and generate reports to analyze team performance.',
+              lottie: 'https://assets4.lottiefiles.com/packages/lf20_qm8eqzse.json' },
+          ].map(({ num, color, title, desc, lottie }) => (
+            <motion.div key={num} variants={fadeUp} transition={{ duration: 0.5 }} whileHover={{ scale: 1.04 }} className="text-center cursor-default bg-white/5 border border-white/10 rounded-2xl p-6">
+              <LottieAnim src={lottie} width="120px" height="120px" style={{ margin: '0 auto' }} />
+              <motion.div className={`w-10 h-10 ${color} rounded-full flex items-center justify-center mx-auto my-3 text-lg font-bold`} whileHover={{ rotate: 8, scale: 1.1 }} transition={{ type: 'spring', stiffness: 300 }}>{num}</motion.div>
               <h3 className="font-bold mb-2">{title}</h3>
               <p className="text-xs text-white/50">{desc}</p>
             </motion.div>
@@ -353,52 +288,20 @@ function Landing() {
 
       {/* Contact */}
       <section id="contact" className="relative z-10 max-w-7xl mx-auto w-full px-6 py-16">
-        <motion.div
-          className="bg-[#1a1d24] border border-white/10 rounded-2xl p-8 lg:p-12 text-center"
-          variants={scaleIn}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.3 }}
-          transition={{ duration: 0.6 }}
-        >
-          <motion.h2
-            className="text-2xl font-bold mb-6"
-            variants={fadeUp}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-          >
-            Get in Touch
-          </motion.h2>
-          <motion.p
-            className="text-white/60 text-sm mb-8"
-            variants={fadeIn}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.15 }}
-          >
+        <motion.div className="bg-[#1a1d24] border border-white/10 rounded-2xl p-8 lg:p-12 text-center" variants={scaleIn} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.3 }} transition={{ duration: 0.6 }}>
+          <div className="flex justify-center mb-4">
+            <LottieAnim src="https://assets6.lottiefiles.com/packages/lf20_u25cckyh.json" width="120px" height="120px" />
+          </div>
+          <motion.h2 className="text-2xl font-bold mb-6" variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true }} transition={{ duration: 0.5 }}>Get in Touch</motion.h2>
+          <motion.p className="text-white/60 text-sm mb-8" variants={fadeIn} initial="hidden" whileInView="visible" viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.15 }}>
             Have questions or need support? We're here to help.
           </motion.p>
-          <motion.div
-            className="flex flex-col md:flex-row items-center justify-center gap-6"
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-          >
+          <motion.div className="flex flex-col md:flex-row items-center justify-center gap-6" variants={staggerContainer} initial="hidden" whileInView="visible" viewport={{ once: true }}>
             {[
               { icon: '📧', color: 'text-blue-400',  text: 'support@tasktracker.com' },
               { icon: '📞', color: 'text-green-400', text: '+1 (555) 123-4567' },
             ].map(({ icon, color, text }) => (
-              <motion.div
-                key={text}
-                variants={fadeUp}
-                transition={{ duration: 0.5 }}
-                whileHover={{ scale: 1.06 }}
-                className="flex items-center gap-3 cursor-default"
-              >
+              <motion.div key={text} variants={fadeUp} transition={{ duration: 0.5 }} whileHover={{ scale: 1.06 }} className="flex items-center gap-3 cursor-default">
                 <div className={`w-10 h-10 bg-white/5 rounded-full flex items-center justify-center ${color}`}>{icon}</div>
                 <span className="text-sm font-medium">{text}</span>
               </motion.div>

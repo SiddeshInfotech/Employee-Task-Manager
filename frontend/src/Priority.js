@@ -21,10 +21,12 @@ function Priority() {
   const isTaskForCurrentUser = (t) => {
     if (role === 'admin') return true;
     const empIdStr = t.employee_id !== undefined && t.employee_id !== null ? String(t.employee_id) : '';
-    const assignedToStr = (t.assigned_to || t.assignee || t.employee_name || t.username || '').toLowerCase();
+    const assignedToStr = (t.assigned_to || t.assignee || t.employee_name || t.username || t.createdBy || '').toLowerCase();
+    const taskUsername = (t.username || '').toLowerCase();
     return (
-      (userId && empIdStr === String(userId)) ||
-      (username && assignedToStr.length > 0 && (assignedToStr.includes(username) || username.includes(assignedToStr)))
+      (userId && empIdStr !== '' && empIdStr === String(userId)) ||
+      (username && assignedToStr.length > 0 && (assignedToStr.includes(username) || username.includes(assignedToStr))) ||
+      (username && taskUsername.length > 0 && taskUsername === username)
     );
   };
 
@@ -56,14 +58,21 @@ function Priority() {
 
     try {
       const res = await api.get('/tasks/?skip=0&limit=100');
-      const apiData = (res.data && res.data.length > 0) ? res.data : [];
+      let apiData = (res.data && res.data.length > 0) ? res.data : [];
+      // Filter API tasks for employees
+      if (role !== 'admin') {
+        apiData = apiData.filter(isTaskForCurrentUser);
+      }
       const apiIds = new Set(apiData.map(t => String(t.task_id || t.id)));
-      const extraLocal = localTasks.filter(lt => !apiIds.has(String(lt.id || lt.task_id)));
+      // Filter local tasks for this user and remove duplicates
+      const extraLocal = localTasks
+        .filter(lt => isTaskForCurrentUser(lt))
+        .filter(lt => !apiIds.has(String(lt.id || lt.task_id)));
       const merged = [...apiData, ...extraLocal];
       setTasks(groupByPriority(merged));
     } catch (err) {
       console.warn('API unavailable, loading from localStorage:', err);
-      setTasks(groupByPriority(localTasks));
+      setTasks(groupByPriority(localTasks.filter(isTaskForCurrentUser)));
     }
   };
 

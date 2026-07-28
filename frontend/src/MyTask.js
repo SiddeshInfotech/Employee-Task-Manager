@@ -45,10 +45,12 @@ function MyTask() {
   const isTaskForCurrentUser = (t) => {
     if (role === 'admin') return true;
     const empIdStr = t.employee_id !== undefined && t.employee_id !== null ? String(t.employee_id) : '';
-    const assignedToStr = (t.assigned_to || t.assignee || t.employee_name || t.username || '').toLowerCase();
+    const assignedToStr = (t.assigned_to || t.assignee || t.employee_name || t.username || t.createdBy || '').toLowerCase();
+    const taskUsername = (t.username || '').toLowerCase();
     return (
-      (userId && empIdStr === String(userId)) ||
-      (username && assignedToStr.length > 0 && (assignedToStr.includes(username) || username.includes(assignedToStr)))
+      (userId && empIdStr !== '' && empIdStr === String(userId)) ||
+      (username && assignedToStr.length > 0 && (assignedToStr.includes(username) || username.includes(assignedToStr))) ||
+      (username && taskUsername.length > 0 && taskUsername === username)
     );
   };
 
