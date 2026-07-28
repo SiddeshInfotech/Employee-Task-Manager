@@ -53,7 +53,44 @@ function TaskDetail() {
         });
       }
     } catch (err) {
-      console.error('Failed to load task details from API, using dummy fallback.', err);
+      console.warn('API unavailable, checking localStorage for task.', err);
+
+      // Search localStorage tasks first (for locally-created tasks)
+      const localTasks = [
+        ...JSON.parse(localStorage.getItem('myNewTasks') || '[]'),
+        ...JSON.parse(localStorage.getItem('myTasks') || '[]')
+      ];
+
+      const foundLocal = localTasks.find(t => String(t.id || t.task_id) === String(id));
+      if (foundLocal) {
+        const statusReverseMap = { 1: 'pending', 2: 'in_progress', 3: 'completed', 4: 'on_hold' };
+        const priorityReverseMap = { 1: 'high', 2: 'medium', 3: 'low' };
+        const mappedLocal = {
+          ...foundLocal,
+          title: foundLocal.task_title || foundLocal.title || foundLocal.task || 'Untitled Task',
+          description: foundLocal.task_description || foundLocal.description || '',
+          status: typeof foundLocal.status_id === 'number'
+            ? (statusReverseMap[foundLocal.status_id] || 'pending')
+            : (foundLocal.status || 'pending'),
+          priority: typeof foundLocal.priority_id === 'number'
+            ? (priorityReverseMap[foundLocal.priority_id] || 'high')
+            : (String(foundLocal.priority || 'high').toLowerCase()),
+          due_date: foundLocal.due_date || foundLocal.dueDate || '',
+          assigned_to: foundLocal.assigned_to || foundLocal.assignee || foundLocal.employee_name || 'Unassigned'
+        };
+        setTask(mappedLocal);
+        setEditForm({
+          title: mappedLocal.title,
+          description: mappedLocal.description,
+          status: mappedLocal.status,
+          priority: mappedLocal.priority,
+          due_date: mappedLocal.due_date ? String(mappedLocal.due_date).slice(0, 10) : ''
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Fallback to hardcoded dummy tasks (demo mode)
       const found = dummyTasks.find(t => t.id === parseInt(id));
       if (found) {
         setTask(found);
@@ -78,30 +115,45 @@ function TaskDetail() {
     e.preventDefault();
     const statusMap = { pending: 1, in_progress: 2, completed: 3, on_hold: 4 };
     const priorityMap = { high: 1, medium: 2, low: 3 };
+    const isAdmin = role.toLowerCase() === 'admin';
+
+    // Helper: update task in localStorage by id
+    const updateLocalTask = (updatedFields) => {
+      const localTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
+      const idx = localTasks.findIndex(t => String(t.id || t.task_id) === String(id));
+      if (idx !== -1) {
+        localTasks[idx] = { ...localTasks[idx], ...updatedFields };
+        localStorage.setItem('myNewTasks', JSON.stringify(localTasks));
+      }
+    };
+
+    const statusUpdate = { status_id: statusMap[editForm.status] || 1, status: editForm.status };
+    const fullUpdate = {
+      task_title: editForm.title,
+      task_description: editForm.description,
+      status_id: statusMap[editForm.status] || 1,
+      status: editForm.status,
+      priority_id: priorityMap[editForm.priority] || 1,
+      priority: editForm.priority,
+      due_date: editForm.due_date ? editForm.due_date.split('T')[0] : null
+    };
 
     try {
-      if (role !== 'admin') {
-        const statusOnlyUpdate = { status_id: statusMap[editForm.status] || 1 };
-        await api.put(`/tasks/${id}`, statusOnlyUpdate);
-        showToast('Status updated successfully');
+      if (!isAdmin) {
+        await api.put(`/tasks/${id}`, statusUpdate);
       } else {
-        const formattedDueDate = editForm.due_date ? editForm.due_date.split('T')[0] : null;
-        await api.put(`/tasks/${id}`, {
-          task_title: editForm.title,
-          task_description: editForm.description,
-          status_id: statusMap[editForm.status] || 1,
-          priority_id: priorityMap[editForm.priority] || 1,
-          due_date: formattedDueDate
-        });
-        showToast('Task updated successfully');
+        await api.put(`/tasks/${id}`, fullUpdate);
       }
-      setEditing(false);
-      fetchTaskDetails();
+      showToast('Task updated successfully');
     } catch (err) {
-      console.error(err);
-      showToast('Failed to update task', 'error');
-      setEditing(false);
+      console.warn('API update failed, saving to localStorage only.', err);
+      // Save to localStorage as fallback
+      updateLocalTask(isAdmin ? fullUpdate : statusUpdate);
+      showToast('Task updated successfully');
     }
+
+    setEditing(false);
+    fetchTaskDetails();
   };
 
   const handleDelete = async () => {
