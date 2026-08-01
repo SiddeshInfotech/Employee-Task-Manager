@@ -19,17 +19,42 @@ function MyTask() {
   const userId = localStorage.getItem('userId') || localStorage.getItem('user_id') || localStorage.getItem('employee_id');
 
   const mapTask = (t) => {
-    const statusStr = typeof t.status === 'string'
-      ? t.status
-      : (t.status_id === 3 ? 'completed' : t.status_id === 2 ? 'in_progress' : 'pending');
+    const statusReverseMap = { 1: 'Pending', 2: 'In Progress', 3: 'Completed', 4: 'On Hold' };
+    const sid = (t.status_id !== undefined && t.status_id !== null) ? Number(t.status_id) : null;
+    let statusDisplay = 'Pending';
+    if (sid !== null && !isNaN(sid) && statusReverseMap[sid]) {
+      statusDisplay = statusReverseMap[sid];
+    } else if (t.status) {
+      const raw = String(t.status).toLowerCase().trim().replace(/[\s\-_]+/g, '');
+      if (raw === '4' || raw === 'onhold' || raw === 'hold') statusDisplay = 'On Hold';
+      else if (raw === '3' || raw === 'completed' || raw === 'done') statusDisplay = 'Completed';
+      else if (raw === '2' || raw === 'inprogress' || raw === 'progress') statusDisplay = 'In Progress';
+      else if (raw === '1' || raw === 'pending') statusDisplay = 'Pending';
+      else statusDisplay = String(t.status).charAt(0).toUpperCase() + String(t.status).slice(1);
+    }
 
     const priorityStr = typeof t.priority === 'string'
       ? t.priority
       : (t.priority_id === 1 ? 'High' : t.priority_id === 2 ? 'Medium' : 'Low');
 
-    const statusDisplay = statusStr === 'in_progress' ? 'In Progress' : statusStr.charAt(0).toUpperCase() + statusStr.slice(1);
     const priorityDisplay = priorityStr.charAt(0).toUpperCase() + priorityStr.slice(1);
-    const progressVal = statusStr === 'completed' ? 100 : statusStr === 'in_progress' ? 60 : 20;
+
+
+    // Calculate progress according to priority
+    const pLower = priorityStr.toLowerCase();
+    let progressVal = 20;
+    if (pLower === 'high' || t.priority_id === 1) {
+      progressVal = 90;
+    } else if (pLower === 'medium' || t.priority_id === 2) {
+      progressVal = 50;
+    } else if (pLower === 'low' || t.priority_id === 3) {
+      progressVal = 20;
+    }
+
+    if (statusDisplay.toLowerCase() === 'completed' || t.status_id === 3) {
+      progressVal = 100;
+    }
+
 
     return {
       id: t.task_id || t.id,
@@ -41,6 +66,7 @@ function MyTask() {
       assignee: t.assigned_to || t.assignee || (t.employee_id ? `Employee #${t.employee_id}` : 'Unassigned')
     };
   };
+
 
   const isTaskForCurrentUser = (t) => {
     if (role === 'admin') return true;

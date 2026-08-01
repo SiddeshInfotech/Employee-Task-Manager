@@ -30,14 +30,30 @@ function Priority() {
     );
   };
 
+  const getTaskStatusDisplay = (t) => {
+    const statusReverseMap = { 1: 'Pending', 2: 'In Progress', 3: 'Completed', 4: 'On Hold' };
+    const sid = (t.status_id !== undefined && t.status_id !== null) ? Number(t.status_id) : null;
+    if (sid !== null && !isNaN(sid) && statusReverseMap[sid]) {
+      return statusReverseMap[sid];
+    }
+    if (t.status) {
+      const raw = String(t.status).toLowerCase().trim().replace(/[\s\-_]+/g, '');
+      if (raw === '4' || raw === 'onhold' || raw === 'hold') return 'On Hold';
+      if (raw === '3' || raw === 'completed' || raw === 'done') return 'Completed';
+      if (raw === '2' || raw === 'inprogress' || raw === 'progress') return 'In Progress';
+      if (raw === '1' || raw === 'pending') return 'Pending';
+      return String(t.status).charAt(0).toUpperCase() + String(t.status).slice(1);
+    }
+    return 'Pending';
+  };
+
   const groupByPriority = (taskList) => {
-    const statusReverseMap = { 1: 'Pending', 2: 'In Progress', 3: 'Completed' };
     const priorityReverseMap = { 1: 'high', 2: 'medium', 3: 'low' };
     const grouped = { high: [], medium: [], low: [] };
 
     taskList.forEach(t => {
       if (!isTaskForCurrentUser(t)) return;
-      const statusText = typeof t.status_id === 'number' ? (statusReverseMap[t.status_id] || 'Pending') : (t.status || 'Pending');
+      const statusText = getTaskStatusDisplay(t);
       const item = {
         id: t.task_id || t.id,
         name: t.task_title || t.title || t.task || 'Untitled Task',
@@ -80,47 +96,42 @@ function Priority() {
     fetchTasks();
   }, []);
 
-  const handleUpdatePriority = async () => {
-    // Collect all tasks across all priority groups
-    const allTasks = [...tasks.high, ...tasks.medium, ...tasks.low];
-
-    if (allTasks.length === 0) {
-      showToast('No tasks available to update', 'error');
-      return;
-    }
-
-    // Build list of task names for the user to choose from
-    const taskList = allTasks.map((tk, idx) => `${idx + 1}. ${tk.name}`).join('\n');
-    const taskInput = prompt(`Enter task name to update priority:\n\n${taskList}`);
-    if (!taskInput) return;
-
-    const matchedTask = allTasks.find(tk =>
-      tk.name.toLowerCase().includes(taskInput.toLowerCase()) ||
-      taskInput.toLowerCase().includes(tk.name.toLowerCase())
-    );
-
-    if (!matchedTask) {
-      showToast('Task not found. Please enter a valid task name.', 'error');
-      return;
-    }
-
-    const newPriority = prompt(`Update priority for "${matchedTask.name}":\nEnter: high, medium, or low`);
-    if (!newPriority || !['high', 'medium', 'low'].includes(newPriority.toLowerCase())) {
-      showToast(t("invalidPriority") || 'Invalid priority. Enter high, medium, or low.', 'error');
+  const handleDropPriority = async (taskId, targetPriority) => {
+    if (role !== 'admin') {
+      showToast('Only admins can change task priority', 'error');
       return;
     }
 
     const priorityMap = { high: 1, medium: 2, low: 3 };
-    const priorityKey = newPriority.toLowerCase();
-    const taskId = matchedTask.id;
+    const priorityId = priorityMap[targetPriority];
 
-    // Always update localStorage (match by id OR name)
+    // Find task in current tasks state
+    let targetTask = null;
+    ['high', 'medium', 'low'].forEach(p => {
+      const found = tasks[p].find(t => String(t.id) === String(taskId));
+      if (found) targetTask = found;
+    });
+
+    if (!targetTask) return;
+
+    // Optimistically update local state
+    setTasks(prev => {
+      const updated = { high: [], medium: [], low: [] };
+      ['high', 'medium', 'low'].forEach(p => {
+        updated[p] = prev[p].filter(t => String(t.id) !== String(taskId));
+      });
+      const updatedItem = { ...targetTask, priority: targetPriority };
+      updated[targetPriority].push(updatedItem);
+      return updated;
+    });
+
+    // Update localStorage
     const localTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
     const updatedLocal = localTasks.map(lt => {
       const ltId = String(lt.id || lt.task_id);
       const ltName = (lt.task_title || lt.title || lt.task || '').toLowerCase();
-      if (ltId === String(taskId) || ltName === matchedTask.name.toLowerCase()) {
-        return { ...lt, priority: priorityKey, priority_id: priorityMap[priorityKey] };
+      if (ltId === String(taskId) || (targetTask.name && ltName === targetTask.name.toLowerCase())) {
+        return { ...lt, priority: targetPriority, priority_id: priorityId };
       }
       return lt;
     });
@@ -128,13 +139,12 @@ function Priority() {
 
     // Attempt API update silently
     try {
-      await api.put(`/tasks/${taskId}`, { priority_id: priorityMap[priorityKey] });
+      await api.put(`/tasks/${taskId}`, { priority_id: priorityId });
     } catch (err) {
       console.warn("API update failed (task may be local-only):", err);
     }
 
-    showToast(`Priority updated to "${priorityKey}" for "${matchedTask.name}"`);
-    await fetchTasks();
+    showToast(`Priority updated to "${targetPriority}" for "${targetTask.name}"`);
   };
 
   const getStatusColor = (s) => {
@@ -143,10 +153,13 @@ function Priority() {
         return 'text-emerald-500 bg-emerald-50';
       case 'In Progress':
         return 'text-amber-500 bg-amber-50';
+      case 'On Hold':
+        return 'text-slate-600 bg-slate-100';
       default:
         return 'text-blue-500 bg-blue-50';
     }
   };
+
 
   return (
     <div className="min-h-screen text-slate-100 flex flex-col font-sans bg-transparent">
@@ -187,13 +200,40 @@ function Priority() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4">
           {/* Column 1: High Priority */}
           {(filter === 'All' || filter === 'High') && (
-            <div className="bg-slate-900/40 border border-slate-850 p-4 rounded-2xl backdrop-blur-md">
+            <div
+              onDragOver={(e) => {
+                if (role !== 'admin') return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (role !== 'admin') {
+                  showToast('Only admins can change task priority', 'error');
+                  return;
+                }
+                const taskId = e.dataTransfer.getData('text/plain');
+                if (taskId) handleDropPriority(taskId, 'high');
+              }}
+              className="bg-slate-900/40 border border-slate-850 p-4 rounded-2xl backdrop-blur-md flex flex-col min-h-[300px]"
+            >
               <div className="bg-rose-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl text-center mb-4 shadow">
                 {t("highPriorityTasks")} ({tasks.high.length})
               </div>
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-3 flex-1">
                 {tasks.high.map((tItem) => (
-                  <div key={tItem.id} className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100">
+                  <div
+                    key={tItem.id}
+                    draggable={role === 'admin'}
+                    onDragStart={(e) => {
+                      if (role !== 'admin') return;
+                      e.dataTransfer.setData('text/plain', String(tItem.id));
+                      e.dataTransfer.effectAllowed = 'move';
+                    }}
+                    className={`bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all ${
+                      role === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-default'
+                    }`}
+                  >
                     <h4 className="font-bold text-sm text-slate-900">{tItem.name}</h4>
                     <div className="flex items-center justify-between text-xs mt-3">
                       <span className="text-slate-400 font-medium">{t("dueDate")}: {tItem.due}</span>
@@ -209,13 +249,40 @@ function Priority() {
 
           {/* Column 2: Medium Priority */}
           {(filter === 'All' || filter === 'Medium') && (
-            <div className="bg-slate-900/40 border border-slate-850 p-4 rounded-2xl backdrop-blur-md">
+            <div
+              onDragOver={(e) => {
+                if (role !== 'admin') return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (role !== 'admin') {
+                  showToast('Only admins can change task priority', 'error');
+                  return;
+                }
+                const taskId = e.dataTransfer.getData('text/plain');
+                if (taskId) handleDropPriority(taskId, 'medium');
+              }}
+              className="bg-slate-900/40 border border-slate-850 p-4 rounded-2xl backdrop-blur-md flex flex-col min-h-[300px]"
+            >
               <div className="bg-amber-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl text-center mb-4 shadow">
                 {t("mediumPriorityTasks")} ({tasks.medium.length})
               </div>
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-3 flex-1">
                 {tasks.medium.map((tItem) => (
-                  <div key={tItem.id} className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100">
+                  <div
+                    key={tItem.id}
+                    draggable={role === 'admin'}
+                    onDragStart={(e) => {
+                      if (role !== 'admin') return;
+                      e.dataTransfer.setData('text/plain', String(tItem.id));
+                      e.dataTransfer.effectAllowed = 'move';
+                    }}
+                    className={`bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all ${
+                      role === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-default'
+                    }`}
+                  >
                     <h4 className="font-bold text-sm text-slate-900">{tItem.name}</h4>
                     <div className="flex items-center justify-between text-xs mt-3">
                       <span className="text-slate-400 font-medium">{t("dueDate")}: {tItem.due}</span>
@@ -231,13 +298,40 @@ function Priority() {
 
           {/* Column 3: Low Priority */}
           {(filter === 'All' || filter === 'Low') && (
-            <div className="bg-slate-900/40 border border-slate-850 p-4 rounded-2xl backdrop-blur-md">
+            <div
+              onDragOver={(e) => {
+                if (role !== 'admin') return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (role !== 'admin') {
+                  showToast('Only admins can change task priority', 'error');
+                  return;
+                }
+                const taskId = e.dataTransfer.getData('text/plain');
+                if (taskId) handleDropPriority(taskId, 'low');
+              }}
+              className="bg-slate-900/40 border border-slate-850 p-4 rounded-2xl backdrop-blur-md flex flex-col min-h-[300px]"
+            >
               <div className="bg-emerald-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl text-center mb-4 shadow">
                 {t("lowPriorityTasks")} ({tasks.low.length})
               </div>
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-3 flex-1">
                 {tasks.low.map((tItem) => (
-                  <div key={tItem.id} className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100">
+                  <div
+                    key={tItem.id}
+                    draggable={role === 'admin'}
+                    onDragStart={(e) => {
+                      if (role !== 'admin') return;
+                      e.dataTransfer.setData('text/plain', String(tItem.id));
+                      e.dataTransfer.effectAllowed = 'move';
+                    }}
+                    className={`bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all ${
+                      role === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-default'
+                    }`}
+                  >
                     <h4 className="font-bold text-sm text-slate-900">{tItem.name}</h4>
                     <div className="flex items-center justify-between text-xs mt-3">
                       <span className="text-slate-400 font-medium">{t("dueDate")}: {tItem.due}</span>
@@ -251,18 +345,6 @@ function Priority() {
             </div>
           )}
         </div>
-
-        {/* Update Button */}
-        {role === 'admin' && (
-          <div className="flex justify-center mt-8">
-            <button
-              onClick={handleUpdatePriority}
-              className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/25"
-            >
-              {t("updatePriority")}
-            </button>
-          </div>
-        )}
       </main>
 
       {/* Footer */}

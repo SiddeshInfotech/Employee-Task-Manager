@@ -97,63 +97,46 @@ function TaskStatus() {
     fetchTasks();
   }, []);
 
-  const handleUpdateStatus = async () => {
-    // Collect all tasks across all status groups
-    const allTasks = [
-      ...tasks.pending,
-      ...tasks.inProgress,
-      ...tasks.completed,
-      ...tasks.onHold
-    ];
-
-    if (allTasks.length === 0) {
-      showToast('No tasks available to update', 'error');
+  const handleDropStatus = async (taskId, targetStatusKey) => {
+    if (role !== 'admin') {
+      showToast('Only admins can change task status', 'error');
       return;
     }
 
-    // Show task names so user can identify which to update
-    const taskList = allTasks.map((tk, idx) => `${idx + 1}. ${tk.name} [${tk.status}]`).join('\n');
-    const taskInput = prompt(`Enter task name to update status:\n\n${taskList}`);
-    if (!taskInput) return;
+    const statusIdMap = { pending: 1, inProgress: 2, completed: 3, onHold: 4 };
+    const statusStrMap = { pending: 'pending', inProgress: 'in_progress', completed: 'completed', onHold: 'on_hold' };
+    const statusDisplayMap = { pending: 'Pending', inProgress: 'In Progress', completed: 'Completed', onHold: 'On Hold' };
 
-    const matchedTask = allTasks.find(tk =>
-      tk.name.toLowerCase().includes(taskInput.toLowerCase()) ||
-      taskInput.toLowerCase().includes(tk.name.toLowerCase())
-    );
+    const statusId = statusIdMap[targetStatusKey];
+    const statusStr = statusStrMap[targetStatusKey];
+    const statusDisplay = statusDisplayMap[targetStatusKey];
 
-    if (!matchedTask) {
-      showToast('Task not found. Please enter a valid task name.', 'error');
-      return;
-    }
+    // Find task in current tasks state
+    let targetTask = null;
+    ['pending', 'inProgress', 'completed', 'onHold'].forEach(key => {
+      const found = tasks[key].find(t => String(t.id) === String(taskId));
+      if (found) targetTask = found;
+    });
 
-    const newStatus = prompt(`Update status for "${matchedTask.name}":\nEnter: pending, in_progress, completed, or on_hold`);
-    if (!newStatus) return;
+    if (!targetTask) return;
 
-    const statusMap = {
-      '1': 1, 'pending': 1, 'todo': 1,
-      '2': 2, 'in_progress': 2, 'inprogress': 2, 'in progress': 2, 'progress': 2,
-      '3': 3, 'completed': 3, 'complete': 3, 'done': 3,
-      '4': 4, 'on_hold': 4, 'onhold': 4, 'on hold': 4, 'hold': 4
-    };
+    // Optimistically update local state
+    setTasks(prev => {
+      const updated = { pending: [], inProgress: [], completed: [], onHold: [] };
+      ['pending', 'inProgress', 'completed', 'onHold'].forEach(key => {
+        updated[key] = prev[key].filter(t => String(t.id) !== String(taskId));
+      });
+      const updatedItem = { ...targetTask, status: statusDisplay };
+      updated[targetStatusKey].push(updatedItem);
+      return updated;
+    });
 
-    const cleanInput = newStatus.toLowerCase().trim().replace(/[\s\-_]+/g, '');
-    const statusId = statusMap[cleanInput] || statusMap[newStatus.toLowerCase().trim()];
-
-    if (!statusId) {
-      showToast('Invalid status. Enter: pending, in_progress, completed, or on_hold', 'error');
-      return;
-    }
-
-    const statusStrMap = { 1: 'pending', 2: 'in_progress', 3: 'completed', 4: 'on_hold' };
-    const statusStr = statusStrMap[statusId];
-    const taskId = matchedTask.id;
-
-    // Always update localStorage (match by id OR name)
+    // Update localStorage
     const localTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
     const updatedLocal = localTasks.map(lt => {
       const ltId = String(lt.id || lt.task_id);
       const ltName = (lt.task_title || lt.title || lt.task || '').toLowerCase();
-      if (ltId === String(taskId) || ltName === matchedTask.name.toLowerCase()) {
+      if (ltId === String(taskId) || (targetTask.name && ltName === targetTask.name.toLowerCase())) {
         return { ...lt, status: statusStr, status_id: statusId };
       }
       return lt;
@@ -167,8 +150,7 @@ function TaskStatus() {
       console.warn("API update failed (task may be local-only):", err);
     }
 
-    showToast(`Status updated to "${statusStr}" for "${matchedTask.name}"`);
-    await fetchTasks();
+    showToast(`Status updated to "${statusDisplay}" for "${targetTask.name}"`);
   };
 
   const getStatusBadgeStyle = (status) => {
@@ -202,13 +184,40 @@ function TaskStatus() {
         {/* Columns Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mt-4">
           {/* Column 1: Pending */}
-          <div className="bg-slate-900/40 border border-slate-850 p-4 rounded-2xl backdrop-blur-md">
+          <div
+            onDragOver={(e) => {
+              if (role !== 'admin') return;
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (role !== 'admin') {
+                showToast('Only admins can change task status', 'error');
+                return;
+              }
+              const taskId = e.dataTransfer.getData('text/plain');
+              if (taskId) handleDropStatus(taskId, 'pending');
+            }}
+            className="bg-slate-900/40 border border-slate-850 p-4 rounded-2xl backdrop-blur-md flex flex-col min-h-[300px]"
+          >
             <div className="bg-rose-600 text-white font-bold text-sm px-4 py-2.5 rounded-xl text-center mb-4 shadow">
               {t("pendingTasks")} ({tasks.pending.length})
             </div>
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 flex-1">
               {tasks.pending.map((item) => (
-                <div key={item.id} className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100">
+                <div
+                  key={item.id}
+                  draggable={role === 'admin'}
+                  onDragStart={(e) => {
+                    if (role !== 'admin') return;
+                    e.dataTransfer.setData('text/plain', String(item.id));
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  className={`bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all ${
+                    role === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-default'
+                  }`}
+                >
                   <h4 className="font-bold text-sm text-slate-900">{item.name}</h4>
                   <div className="flex items-center justify-between text-xs mt-3">
                     <span className="text-slate-400 font-medium">{t("due")}: {item.due}</span>
@@ -222,13 +231,40 @@ function TaskStatus() {
           </div>
 
           {/* Column 2: In Progress */}
-          <div className="bg-slate-900/40 border border-slate-850 p-4 rounded-2xl backdrop-blur-md">
+          <div
+            onDragOver={(e) => {
+              if (role !== 'admin') return;
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (role !== 'admin') {
+                showToast('Only admins can change task status', 'error');
+                return;
+              }
+              const taskId = e.dataTransfer.getData('text/plain');
+              if (taskId) handleDropStatus(taskId, 'inProgress');
+            }}
+            className="bg-slate-900/40 border border-slate-850 p-4 rounded-2xl backdrop-blur-md flex flex-col min-h-[300px]"
+          >
             <div className="bg-amber-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl text-center mb-4 shadow">
               {t("inProgressTasks")} ({tasks.inProgress.length})
             </div>
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 flex-1">
               {tasks.inProgress.map((item) => (
-                <div key={item.id} className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100">
+                <div
+                  key={item.id}
+                  draggable={role === 'admin'}
+                  onDragStart={(e) => {
+                    if (role !== 'admin') return;
+                    e.dataTransfer.setData('text/plain', String(item.id));
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  className={`bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all ${
+                    role === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-default'
+                  }`}
+                >
                   <h4 className="font-bold text-sm text-slate-900">{item.name}</h4>
                   <div className="flex items-center justify-between text-xs mt-3">
                     <span className="text-slate-400 font-medium">{t("due")}: {item.due}</span>
@@ -242,13 +278,40 @@ function TaskStatus() {
           </div>
 
           {/* Column 3: Completed */}
-          <div className="bg-slate-900/40 border border-slate-850 p-4 rounded-2xl backdrop-blur-md">
+          <div
+            onDragOver={(e) => {
+              if (role !== 'admin') return;
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (role !== 'admin') {
+                showToast('Only admins can change task status', 'error');
+                return;
+              }
+              const taskId = e.dataTransfer.getData('text/plain');
+              if (taskId) handleDropStatus(taskId, 'completed');
+            }}
+            className="bg-slate-900/40 border border-slate-850 p-4 rounded-2xl backdrop-blur-md flex flex-col min-h-[300px]"
+          >
             <div className="bg-emerald-600 text-white font-bold text-sm px-4 py-2.5 rounded-xl text-center mb-4 shadow">
               {t("completedTasks")} ({tasks.completed.length})
             </div>
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 flex-1">
               {tasks.completed.map((item) => (
-                <div key={item.id} className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100">
+                <div
+                  key={item.id}
+                  draggable={role === 'admin'}
+                  onDragStart={(e) => {
+                    if (role !== 'admin') return;
+                    e.dataTransfer.setData('text/plain', String(item.id));
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  className={`bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all ${
+                    role === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-default'
+                  }`}
+                >
                   <h4 className="font-bold text-sm text-slate-900">{item.name}</h4>
                   <div className="flex items-center justify-between text-xs mt-3">
                     <span className="text-slate-400 font-medium">{t("due")}: {item.due}</span>
@@ -262,13 +325,40 @@ function TaskStatus() {
           </div>
 
           {/* Column 4: On Hold */}
-          <div className="bg-slate-900/40 border border-slate-850 p-4 rounded-2xl backdrop-blur-md">
+          <div
+            onDragOver={(e) => {
+              if (role !== 'admin') return;
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (role !== 'admin') {
+                showToast('Only admins can change task status', 'error');
+                return;
+              }
+              const taskId = e.dataTransfer.getData('text/plain');
+              if (taskId) handleDropStatus(taskId, 'onHold');
+            }}
+            className="bg-slate-900/40 border border-slate-850 p-4 rounded-2xl backdrop-blur-md flex flex-col min-h-[300px]"
+          >
             <div className="bg-slate-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl text-center mb-4 shadow">
               {t("onHoldTasks")} ({tasks.onHold.length})
             </div>
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 flex-1">
               {tasks.onHold.map((item) => (
-                <div key={item.id} className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100">
+                <div
+                  key={item.id}
+                  draggable={role === 'admin'}
+                  onDragStart={(e) => {
+                    if (role !== 'admin') return;
+                    e.dataTransfer.setData('text/plain', String(item.id));
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  className={`bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all ${
+                    role === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-default'
+                  }`}
+                >
                   <h4 className="font-bold text-sm text-slate-900">{item.name}</h4>
                   <div className="flex items-center justify-between text-xs mt-3">
                     <span className="text-slate-400 font-medium">{t("due")}: {item.due}</span>
@@ -281,19 +371,6 @@ function TaskStatus() {
             </div>
           </div>
         </div>
-
-        {/* Update button */}
-        {/* Update button */}
-        {role === 'admin' && (
-          <div className="flex justify-center mt-8">
-            <button
-              onClick={handleUpdateStatus}
-              className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/25"
-            >
-              {t("updateStatus")}
-            </button>
-          </div>
-        )}
       </main>
 
       {/* Footer */}

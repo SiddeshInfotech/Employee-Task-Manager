@@ -26,14 +26,13 @@ function DueDate() {
 
   const isTaskForCurrentUser = (t) => {
     if (role === 'admin') return true;
-    const empIdStr = t.employee_id !== undefined && t.employee_id !== null ? String(t.employee_id) : '';
+    const empIdStr = t.employee_id !== undefined && t.employee_id !== null ? String(t.employee_id) : (t.user_id !== undefined && t.user_id !== null ? String(t.user_id) : '');
     const assignedToStr = (t.assigned_to || t.assignee || t.employee_name || t.username || t.createdBy || '').toLowerCase();
     const taskUsername = (t.username || '').toLowerCase();
-    return (
-      (userId && empIdStr !== '' && empIdStr === String(userId)) ||
-      (username && assignedToStr.length > 0 && (assignedToStr.includes(username) || username.includes(assignedToStr))) ||
-      (username && taskUsername.length > 0 && taskUsername === username)
-    );
+    if (userId && empIdStr !== '' && empIdStr === String(userId)) return true;
+    if (username && assignedToStr.length > 0 && (assignedToStr.includes(username) || username.includes(assignedToStr))) return true;
+    if (username && taskUsername.length > 0 && taskUsername === username) return true;
+    return false;
   };
 
   const classifyTasks = (taskData) => {
@@ -45,11 +44,11 @@ function DueDate() {
     const todayList = [];
 
     taskData.forEach(t => {
-      const rawDue = t.due_date;
-      const taskDate = rawDue ? new Date(rawDue) : null;
-      if (taskDate && !isNaN(taskDate)) {
+      const rawDue = t.due_date || t.dueDate || t.due;
+      const taskDate = rawDue ? new Date(rawDue) : new Date();
+      if (taskDate && !isNaN(taskDate.getTime())) {
         taskDate.setHours(0, 0, 0, 0);
-        const formattedDate = new Date(rawDue).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const formattedDate = taskDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
         const item = {
           id: t.task_id || t.id,
@@ -60,8 +59,12 @@ function DueDate() {
           rawDate: taskDate
         };
 
-        const statusStr = String(t.status || '').toLowerCase();
-        if (taskDate < now && statusStr !== 'completed') {
+        // Determine if task is completed using both status string and status_id
+        const sid = t.status_id !== undefined && t.status_id !== null ? Number(t.status_id) : NaN;
+        const statusStr = String(t.status || '').toLowerCase().trim().replace(/[\s\-_]+/g, '');
+        const isCompleted = sid === 3 || statusStr === 'completed' || statusStr === 'done';
+
+        if (taskDate < now && !isCompleted) {
           overdueList.push(item);
         } else if (taskDate.getTime() === now.getTime()) {
           todayList.push(item);
@@ -80,11 +83,24 @@ function DueDate() {
   };
 
   useEffect(() => {
-    // GET /tasks/?skip=0&limit=100
     const fetchTasks = async () => {
       setLoading(true);
-      const localTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
-      const filteredLocal = localTasks.filter(isTaskForCurrentUser);
+      const localNew = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
+      const localMy = JSON.parse(localStorage.getItem('myTasks') || '[]');
+      const localAll = JSON.parse(localStorage.getItem('tasks') || '[]');
+      const localTasks = [...localNew, ...localMy, ...localAll];
+
+      const seenLocal = new Set();
+      const uniqueLocal = [];
+      localTasks.forEach(lt => {
+        const idKey = String(lt.task_id || lt.id || lt.title || lt.task_title);
+        if (!seenLocal.has(idKey)) {
+          seenLocal.add(idKey);
+          uniqueLocal.push(lt);
+        }
+      });
+
+      const filteredLocal = uniqueLocal.filter(isTaskForCurrentUser);
 
       try {
         const res = await api.get('/tasks/?skip=0&limit=100');
@@ -114,18 +130,91 @@ function DueDate() {
   }, []);
 
   const handleSendReminder = async () => {
+    const timestampStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const messageText = `Task Deadline Reminder: Please check task schedules. (${timestampStr})`;
+    const newNotif = {
+      id: Date.now(),
+      title: 'Task Deadline Reminder',
+      description: messageText,
+      message: messageText,
+      is_read: false
+    };
+
+    const localNotifs = JSON.parse(localStorage.getItem('myNotifications') || '[]');
+    localNotifs.unshift(newNotif);
+    localStorage.setItem('myNotifications', JSON.stringify(localNotifs));
+    localStorage.removeItem('allNotificationsCleared');
+
     try {
       await api.post('/notifications/', null, {
         params: {
           employee_id: 1,
-          message: 'Task Deadline Reminder: Please check task schedules.'
+          message: messageText
         }
       });
-      showToast('Reminder sent successfully');
     } catch (err) {
-      console.error(err);
-      showToast('Reminder sent successfully');
+      console.warn('API post notification failed:', err);
     }
+
+    showToast('Reminder sent successfully');
+  };
+
+  const handleDropDueDate = async (taskId, targetCategory) => {
+    if (role !== 'admin') {
+      showToast('Only admins can change task due dates', 'error');
+      return;
+    }
+
+    const now = new Date();
+    let newDueDate = new Date();
+
+    if (targetCategory === 'upcoming') {
+      newDueDate.setDate(now.getDate() + 1); // Tomorrow
+    } else if (targetCategory === 'overdue') {
+      newDueDate.setDate(now.getDate() - 1); // Yesterday
+    } else if (targetCategory === 'today') {
+      newDueDate = new Date(now); // Today
+    }
+
+    const isoString = newDueDate.toISOString();
+
+    // Find task in tasks list
+    const targetTask = tasks.find(t => String(t.task_id || t.id) === String(taskId));
+    if (!targetTask) return;
+
+    // Update tasks state with new due_date
+    const updatedTasks = tasks.map(t => {
+      if (String(t.task_id || t.id) === String(taskId)) {
+        return { ...t, due_date: isoString };
+      }
+      return t;
+    });
+
+    setTasks(updatedTasks);
+    classifyTasks(updatedTasks);
+
+    // Update localStorage
+    const localTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
+    const updatedLocal = localTasks.map(lt => {
+      const ltId = String(lt.id || lt.task_id);
+      const ltName = (lt.task_title || lt.title || lt.task || '').toLowerCase();
+      const targetName = (targetTask.task_title || targetTask.title || targetTask.name || '').toLowerCase();
+      if (ltId === String(taskId) || (targetName && ltName === targetName)) {
+        return { ...lt, due_date: isoString };
+      }
+      return lt;
+    });
+    localStorage.setItem('myNewTasks', JSON.stringify(updatedLocal));
+
+    // Attempt API update silently
+    try {
+      await api.put(`/tasks/${taskId}`, { due_date: isoString });
+    } catch (err) {
+      console.warn("API update failed (task may be local-only):", err);
+    }
+
+    const categoryNames = { upcoming: 'Upcoming', overdue: 'Overdue', today: 'Today' };
+    showToast(`Due date updated to ${categoryNames[targetCategory]} for "${targetTask.task_title || targetTask.title || targetTask.name || 'Task'}"`);
   };
 
   // Calendar dates representation
@@ -182,13 +271,41 @@ function DueDate() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start mt-4">
 
           {/* Column 1: Upcoming */}
-          <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl backdrop-blur-md">
+          <div
+            onDragOver={(e) => {
+              if (role !== 'admin') return;
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (role !== 'admin') {
+                showToast('Only admins can change task due dates', 'error');
+                return;
+              }
+              const taskId = e.dataTransfer.getData('text/plain');
+              if (taskId) handleDropDueDate(taskId, 'upcoming');
+            }}
+            className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl backdrop-blur-md flex flex-col min-h-[300px]"
+          >
             <div className="bg-blue-600 text-white font-bold text-sm px-4 py-2.5 rounded-xl text-center mb-4 shadow">
               {t('upcomingDeadlines')} ({upcomingTasks.length})
             </div>
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 flex-1">
               {upcomingTasks.map((t) => (
-                <div key={t.id} className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 hover:scale-102 transition-all cursor-pointer" onClick={() => navigate(`/tasks/${t.id}`)}>
+                <div
+                  key={t.id}
+                  draggable={role === 'admin'}
+                  onDragStart={(e) => {
+                    if (role !== 'admin') return;
+                    e.dataTransfer.setData('text/plain', String(t.id));
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  className={`bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all ${
+                    role === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-pointer'
+                  }`}
+                  onClick={() => navigate(`/tasks/${t.id}`)}
+                >
                   <h4 className="font-bold text-sm text-slate-900">{t.name}</h4>
                   <div className="flex items-center justify-between text-xs text-slate-500 mt-2">
                     <span className="font-medium">Due: {t.due}</span>
@@ -200,13 +317,41 @@ function DueDate() {
           </div>
 
           {/* Column 2: Overdue */}
-          <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl backdrop-blur-md">
+          <div
+            onDragOver={(e) => {
+              if (role !== 'admin') return;
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (role !== 'admin') {
+                showToast('Only admins can change task due dates', 'error');
+                return;
+              }
+              const taskId = e.dataTransfer.getData('text/plain');
+              if (taskId) handleDropDueDate(taskId, 'overdue');
+            }}
+            className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl backdrop-blur-md flex flex-col min-h-[300px]"
+          >
             <div className="bg-rose-600 text-white font-bold text-sm px-4 py-2.5 rounded-xl text-center mb-4 shadow">
               {t('overdueTasks')} ({overdueTasks.length})
             </div>
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 flex-1">
               {overdueTasks.map((t) => (
-                <div key={t.id} className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 hover:scale-102 transition-all cursor-pointer" onClick={() => navigate(`/tasks/${t.id}`)}>
+                <div
+                  key={t.id}
+                  draggable={role === 'admin'}
+                  onDragStart={(e) => {
+                    if (role !== 'admin') return;
+                    e.dataTransfer.setData('text/plain', String(t.id));
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  className={`bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all ${
+                    role === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-pointer'
+                  }`}
+                  onClick={() => navigate(`/tasks/${t.id}`)}
+                >
                   <h4 className="font-bold text-sm text-slate-900">{t.name || t.task_title || t.title || 'Untitled Task'}</h4>
                   <div className="flex items-center justify-between text-xs mt-2">
                     <span className="text-slate-500 font-medium">Due: {t.due}</span>
@@ -218,13 +363,41 @@ function DueDate() {
           </div>
 
           {/* Column 3: Today's Tasks */}
-          <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl backdrop-blur-md">
+          <div
+            onDragOver={(e) => {
+              if (role !== 'admin') return;
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (role !== 'admin') {
+                showToast('Only admins can change task due dates', 'error');
+                return;
+              }
+              const taskId = e.dataTransfer.getData('text/plain');
+              if (taskId) handleDropDueDate(taskId, 'today');
+            }}
+            className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl backdrop-blur-md flex flex-col min-h-[300px]"
+          >
             <div className="bg-emerald-600 text-white font-bold text-sm px-4 py-2.5 rounded-xl text-center mb-4 shadow">
               {t('todayTasks')} ({todayTasks.length})
             </div>
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 flex-1">
               {todayTasks.map((t) => (
-                <div key={t.id} className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 hover:scale-102 transition-all cursor-pointer" onClick={() => navigate(`/tasks/${t.id}`)}>
+                <div
+                  key={t.id}
+                  draggable={role === 'admin'}
+                  onDragStart={(e) => {
+                    if (role !== 'admin') return;
+                    e.dataTransfer.setData('text/plain', String(t.id));
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  className={`bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all ${
+                    role === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-pointer'
+                  }`}
+                  onClick={() => navigate(`/tasks/${t.id}`)}
+                >
                   <h4 className="font-bold text-sm text-slate-900">{t.name}</h4>
                   <div className="flex items-center justify-between text-xs mt-2">
                     <span className="text-slate-500 font-medium">Due: {t.due || t.time || 'Today'}</span>
@@ -283,34 +456,33 @@ function DueDate() {
             </div>
             {/* Tasks for Selected Date */}
             <div className="mt-4">
-              <h4 className="text-sm font-bold mb-2">
+              <h4 className="text-sm font-bold text-slate-900 mb-2">
                 {t('tasksOn')} {selectedDate}
               </h4>
 
               {tasks
                 .filter((t) => {
-                  if (!t.due_date) return false;
-                  return new Date(t.due_date).getDate() === selectedDate;
+                  const due = t.due_date || t.dueDate;
+                  if (!due) return false;
+                  return new Date(due).getDate() === selectedDate;
                 })
                 .map((t) => (
                   <div
-                    key={t.task_id}
-                    className="bg-slate-100 p-2 rounded mb-2"
+                    key={t.task_id || t.id}
+                    className="bg-slate-100 p-2 rounded mb-2 text-black text-xs font-bold shadow-sm"
                   >
-                    {t.task_title}
+                    {t.task_title || t.title || t.task || 'Untitled Task'}
                   </div>
                 ))}
 
-              {tasks.filter(
-                (t) =>
-                  t.due_date &&
-                  new Date(t.due_date).getDate() === selectedDate
-              ).length === 0 && (
-                  <p className="text-xs text-slate-500">
+              {tasks.filter((t) => {
+                  const due = t.due_date || t.dueDate;
+                  return due && new Date(due).getDate() === selectedDate;
+              }).length === 0 && (
+                  <p className="text-xs text-slate-900 font-medium">
                     {t('noTasksDate')}
                   </p>
                 )}
-
             </div>
           </div>
         </div>

@@ -1,13 +1,487 @@
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* ═══════════════════════════════════════════════
+   PREMIUM GLOBAL DESIGN SYSTEM
+   Employee Task Tracker – Internal App Styles
+   ═══════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+/* ── Reset & Base ─────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Color Tokens */
+  --bg-base:       #080a0f;
+  --bg-surface:    #0d1117;
+  --bg-card:       rgba(255,255,255,0.03);
+  --bg-card-hover: rgba(255,255,255,0.06);
+  --border:        rgba(255,255,255,0.08);
+  --border-hover:  rgba(255,255,255,0.18);
+
+  --blue:   #2563eb;
+  --purple: #7c3aed;
+  --green:  #059669;
+  --amber:  #d97706;
+  --rose:   #be123c;
+  --cyan:   #0e7490;
+
+  --text-primary:   #f1f5f9;
+  --text-secondary: rgba(255,255,255,0.55);
+  --text-muted:     rgba(255,255,255,0.30);
+
+  --grad-brand: linear-gradient(135deg,#2563eb,#7c3aed);
+  --grad-green: linear-gradient(135deg,#059669,#10b981);
+  --grad-amber: linear-gradient(135deg,#d97706,#f59e0b);
+  --grad-rose:  linear-gradient(135deg,#be123c,#f43f5e);
+  --grad-cyan:  linear-gradient(135deg,#0e7490,#06b6d4);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  --shadow-sm:    0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md:    0 4px 16px rgba(0,0,0,0.5);
+  --shadow-lg:    0 8px 32px rgba(0,0,0,0.6);
+  --shadow-blue:  0 0 24px rgba(37,99,235,0.35);
+  --shadow-purple:0 0 24px rgba(124,58,237,0.35);
+
+  --transition: 0.2s cubic-bezier(0.4,0,0.2,1);
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  line-height: 1.6;
 }
+
+/* ── Premium Scrollbar ────────────────────────── */
+::-webkit-scrollbar              { width: 6px; height: 6px; }
+::-webkit-scrollbar-track        { background: rgba(255,255,255,0.03); border-radius: 99px; }
+::-webkit-scrollbar-thumb        { background: rgba(255,255,255,0.12); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover  { background: rgba(255,255,255,0.25); }
+
+/* ── Selection ────────────────────────────────── */
+::selection { background: rgba(37,99,235,0.35); color: #fff; }
+
+/* ── Typography ───────────────────────────────── */
+h1,h2,h3,h4,h5,h6 { letter-spacing: -0.02em; line-height: 1.2; font-weight: 700; color: var(--text-primary); }
+p { color: var(--text-secondary); }
+code { font-family: 'Fira Code', monospace; }
+
+/* ── Links ────────────────────────────────────── */
+a { color: inherit; text-decoration: none; transition: color var(--transition); }
+
+/* ── Utility Classes ──────────────────────────── */
+.glass {
+  background: rgba(255,255,255,0.04);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+}
+.glass-dark {
+  background: rgba(8,10,15,0.80);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255,255,255,0.07);
+}
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  transition: background var(--transition), border var(--transition), box-shadow var(--transition);
+}
+.card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-hover);
+}
+.gradient-text {
+  background: var(--grad-brand);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 999px;
+  font-size: 11px; font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+}
+
+/* ── Animated Gradient Border ─────────────────── */
+.grad-border {
+  position: relative;
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+}
+.grad-border::before {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--grad-brand);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ── Buttons ──────────────────────────────────── */
+.btn-primary {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 20px; border-radius: var(--radius-md);
+  background: var(--grad-brand);
+  color: #fff; font-weight: 700; font-size: 14px;
+  border: none; cursor: pointer;
+  box-shadow: var(--shadow-blue);
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.btn-primary:hover  { transform: scale(1.03); box-shadow: 0 0 30px rgba(37,99,235,0.5); }
+.btn-primary:active { transform: scale(0.97); }
+
+.btn-ghost {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: var(--radius-md);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  color: var(--text-secondary); font-weight: 600; font-size: 13px;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition), border var(--transition);
+}
+.btn-ghost:hover { background: rgba(255,255,255,0.08); border-color: var(--border-hover); color: var(--text-primary); }
+
+/* ── Form Controls ────────────────────────────── */
+input, select, textarea {
+  font-family: var(--font);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  padding: 10px 14px;
+  font-size: 14px;
+  outline: none;
+  transition: border var(--transition), box-shadow var(--transition);
+  width: 100%;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: rgba(37,99,235,0.6);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+}
+input::placeholder, textarea::placeholder { color: var(--text-muted); }
+select option { background: #0d1117; color: #f1f5f9; }
+
+/* ── Tables ───────────────────────────────────── */
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+td { padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 13px; }
+tr:hover td { background: rgba(255,255,255,0.02); }
+tr:last-child td { border-bottom: none; }
+
+/* ── Status Pills ─────────────────────────────── */
+.pill             { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+.pill-blue        { background: rgba(37,99,235,0.15);  color: #60a5fa; border: 1px solid rgba(37,99,235,0.3);  }
+.pill-green       { background: rgba(5,150,105,0.15);  color: #34d399; border: 1px solid rgba(5,150,105,0.3);  }
+.pill-amber       { background: rgba(217,119,6,0.15);  color: #fbbf24; border: 1px solid rgba(217,119,6,0.3);  }
+.pill-red         { background: rgba(190,18,60,0.15);  color: #fb7185; border: 1px solid rgba(190,18,60,0.3);  }
+.pill-purple      { background: rgba(124,58,237,0.15); color: #c4b5fd; border: 1px solid rgba(124,58,237,0.3); }
+.pill-slate       { background: rgba(100,116,139,0.15);color: #94a3b8; border: 1px solid rgba(100,116,139,0.3);}
+
+/* ── Stat Card ────────────────────────────────── */
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.stat-card .icon-box {
+  width: 40px; height: 40px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; margin-bottom: 12px;
+}
+.stat-card .number { font-size: 28px; font-weight: 900; letter-spacing: -0.03em; }
+.stat-card .label  { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+/* ── Page Wrapper ─────────────────────────────── */
+.page-wrapper {
+  min-height: 100vh;
+  background: var(--bg-base);
+  padding: 24px;
+}
+.page-header {
+  margin-bottom: 28px;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+}
+.page-title { font-size: 22px; font-weight: 800; }
+.page-sub   { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+/* ── Shimmer Skeleton ─────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.08) 50%,rgba(255,255,255,0.04) 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.4s infinite linear;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Fade-in Animation ────────────────────────── */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fadeSlideUp 0.4s ease forwards; }
+
+/* ── Ping Badge ───────────────────────────────── */
+@keyframes ping { 75%,100% { transform: scale(2); opacity: 0; } }
+.ping { animation: ping 1s cubic-bezier(0,0,0.2,1) infinite; }
+
+/* ── Drag-over highlight ──────────────────────── */
+.drop-zone-active {
+  border: 2px dashed rgba(37,99,235,0.6) !important;
+  background: rgba(37,99,235,0.05) !important;
+}
+
+/* ── Toast override ───────────────────────────── */
+.Toastify__toast { font-family: var(--font) !important; border-radius: var(--radius-md) !important; }
+.Toastify__toast--default { background: #1e293b !important; color: #f1f5f9 !important; }
+
+/* ── Light Mode System Overrides ──────────────── */
+html.light, html:not(.dark):not(.original) {
+  --bg-base:       #ffffff;
+  --bg-surface:    #f8fafc;
+  --bg-card:       #ffffff;
+  --bg-card-hover: #f1f5f9;
+  --border:        rgba(0, 0, 0, 0.12);
+  --border-hover:  rgba(0, 0, 0, 0.25);
+
+  --text-primary:   #000000;
+  --text-secondary: #1e293b;
+  --text-muted:     #475569;
+
+  --shadow-sm:    0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md:    0 4px 16px rgba(0,0,0,0.08);
+  --shadow-lg:    0 8px 32px rgba(0,0,0,0.12);
+}
+
+html.light body,
+html.light .page-wrapper,
+html.light main,
+html:not(.dark):not(.original) body,
+html:not(.dark):not(.original) .page-wrapper,
+html:not(.dark):not(.original) main {
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+/* Specific background color overrides for Tailwind dark classes in Light Mode */
+html.light [class*="bg-slate-9"],
+html.light [class*="bg-slate-8"],
+html.light [class*="bg-[#0f172a]"],
+html.light [class*="bg-[#090d16]"],
+html.light [class*="bg-[#080a0f]"],
+html.light [class*="bg-[#1a237e]"],
+html.light [class*="bg-slate-950"],
+html.light [class*="bg-black"],
+html.light [class*="bg-slate-900"],
+html:not(.dark):not(.original) [class*="bg-slate-9"],
+html:not(.dark):not(.original) [class*="bg-slate-8"],
+html:not(.dark):not(.original) [class*="bg-[#0f172a]"],
+html:not(.dark):not(.original) [class*="bg-[#090d16]"],
+html:not(.dark):not(.original) [class*="bg-[#080a0f]"],
+html:not(.dark):not(.original) [class*="bg-[#1a237e]"],
+html:not(.dark):not(.original) [class*="bg-slate-950"],
+html:not(.dark):not(.original) [class*="bg-black"],
+html:not(.dark):not(.original) [class*="bg-slate-900"] {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  color: #000000 !important;
+}
+
+html.light body *,
+html:not(.dark):not(.original) body * {
+  color: #000000;
+}
+
+html.light h1, html.light h2, html.light h3, html.light h4, html.light h5, html.light h6,
+html.light .page-title, html.light .stat-card .number,
+html:not(.dark):not(.original) h1, html:not(.dark):not(.original) h2, html:not(.dark):not(.original) h3, 
+html:not(.dark):not(.original) h4, html:not(.dark):not(.original) h5, html:not(.dark):not(.original) h6,
+html:not(.dark):not(.original) .page-title, html:not(.dark):not(.original) .stat-card .number {
+  color: #000000 !important;
+}
+
+html.light p, html.light .page-sub, html.light .stat-card .label, html.light label,
+html:not(.dark):not(.original) p, html:not(.dark):not(.original) .page-sub, 
+html:not(.dark):not(.original) .stat-card .label, html:not(.dark):not(.original) label {
+  color: #1e293b !important;
+}
+
+html.light .text-white, html.light .text-slate-100, html.light .text-slate-200, html.light .text-slate-300,
+html:not(.dark):not(.original) .text-white, html:not(.dark):not(.original) .text-slate-100, 
+html:not(.dark):not(.original) .text-slate-200, html:not(.dark):not(.original) .text-slate-300 {
+  color: #000000 !important;
+}
+
+html.light .text-slate-400, html.light .text-slate-500,
+html:not(.dark):not(.original) .text-slate-400, html:not(.dark):not(.original) .text-slate-500 {
+  color: #334155 !important;
+}
+
+html.light .glass, html:not(.dark):not(.original) .glass {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+html.light .glass-dark, html:not(.dark):not(.original) .glass-dark {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+}
+
+html.light .card, html.light .stat-card,
+html:not(.dark):not(.original) .card, html:not(.dark):not(.original) .stat-card {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+html.light .card:hover, html.light .stat-card:hover,
+html:not(.dark):not(.original) .card:hover, html:not(.dark):not(.original) .stat-card:hover {
+  background: #ffffff;
+  border-color: rgba(37, 99, 235, 0.3);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+html.light input, html.light select, html.light textarea,
+html:not(.dark):not(.original) input, html:not(.dark):not(.original) select, html:not(.dark):not(.original) textarea {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.2) !important;
+  color: #000000 !important;
+}
+
+html.light select option, html:not(.dark):not(.original) select option {
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+html.light input::placeholder, html.light textarea::placeholder,
+html:not(.dark):not(.original) input::placeholder, html:not(.dark):not(.original) textarea::placeholder {
+  color: #64748b !important;
+}
+
+html.light .btn-ghost, html:not(.dark):not(.original) .btn-ghost {
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  color: #000000 !important;
+}
+
+html.light .btn-ghost:hover, html:not(.dark):not(.original) .btn-ghost:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: #000000 !important;
+}
+
+html.light tr:hover td, html:not(.dark):not(.original) tr:hover td {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+html.light th, html:not(.dark):not(.original) th {
+  color: #475569 !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+html.light td, html:not(.dark):not(.original) td {
+  color: #000000 !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* ── Landing Page Light Mode Overrides ───────────── */
+html.light [class*="bg-[#080a0f]"],
+html:not(.dark):not(.original) [class*="bg-[#080a0f]"] {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+html.light .fixed.inset-0,
+html:not(.dark):not(.original) .fixed.inset-0 {
+  background: #ffffff !important;
+  opacity: 0.15;
+}
+
+html.light header,
+html:not(.dark):not(.original) header {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+html.light nav a,
+html:not(.dark):not(.original) nav a {
+  color: #000000 !important;
+}
+
+html.light nav a:hover,
+html:not(.dark):not(.original) nav a:hover {
+  color: #2563eb !important;
+}
+
+/* Exceptions: Primary buttons, badges, pill badges, and status highlights */
+html.light .btn-primary,
+html.light .btn-primary *,
+html.light .bg-blue-600,
+html.light .bg-blue-600 *,
+html.light .bg-green-600,
+html.light .bg-green-600 *,
+html.light .bg-rose-600,
+html.light .bg-rose-600 *,
+html.light .bg-emerald-600,
+html.light .bg-emerald-600 *,
+html:not(.dark):not(.original) .btn-primary,
+html:not(.dark):not(.original) .btn-primary *,
+html:not(.dark):not(.original) .bg-blue-600,
+html:not(.dark):not(.original) .bg-blue-600 *,
+html:not(.dark):not(.original) .bg-green-600,
+html:not(.dark):not(.original) .bg-green-600 *,
+html:not(.dark):not(.original) .bg-rose-600,
+html:not(.dark):not(.original) .bg-rose-600 *,
+html:not(.dark):not(.original) .bg-emerald-600,
+html:not(.dark):not(.original) .bg-emerald-600 * {
+  color: #ffffff !important;
+}
+
+/* ── Original Mode System Overrides ───────────── */
+html.original {
+  /* Restores the default native design system across the entire website exactly as it was originally built */
+  --bg-base:       #080a0f;
+  --bg-surface:    #0d1117;
+  --bg-card:       rgba(255,255,255,0.03);
+  --bg-card-hover: rgba(255,255,255,0.06);
+  --border:        rgba(255,255,255,0.08);
+  --border-hover:  rgba(255,255,255,0.18);
+
+  --text-primary:   #f1f5f9;
+  --text-secondary: rgba(255,255,255,0.55);
+  --text-muted:     rgba(255,255,255,0.30);
+}
+
+
+

@@ -151,6 +151,32 @@ def create_notification(
     return notification
 
 
+def delete_notification(
+    db: Session,
+    notification_id: int
+):
+    notif = db.query(models.Notification).filter(models.Notification.notification_id == notification_id).first()
+    if notif:
+        db.delete(notif)
+        db.commit()
+        return True
+    return False
+
+
+def delete_all_notifications(
+    db: Session,
+    employee_id: int,
+    role: str
+):
+    if role == "Admin":
+        db.query(models.Notification).delete()
+    else:
+        db.query(models.Notification).filter(models.Notification.employee_id == employee_id).delete()
+    db.commit()
+    return True
+
+
+
 # -------------------------
 # REMINDER CRUD
 # -------------------------

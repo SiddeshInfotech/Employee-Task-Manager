@@ -31,20 +31,77 @@ function TeamMembers() {
     }
   }, []);
 
-  useEffect(() => {
-    const fetchUsers = async () => {
+  const computeMemberTaskCounts = (memberName, memberId, allTasksList) => {
+    if (!allTasksList || allTasksList.length === 0) return { assigned: 0, completed: 0 };
+    const mName = (memberName || '').toLowerCase().trim();
+    const mIdStr = memberId !== undefined && memberId !== null ? String(memberId) : '';
 
+    let assignedCount = 0;
+    let completedCount = 0;
+
+    allTasksList.forEach(t => {
+      const empIdStr = t.employee_id !== undefined && t.employee_id !== null ? String(t.employee_id) : (t.user_id !== undefined && t.user_id !== null ? String(t.user_id) : '');
+      const assignedToStr = (t.assigned_to || t.assignee || t.employee_name || t.username || t.createdBy || '').toLowerCase().trim();
+      const taskUsername = (t.username || '').toLowerCase().trim();
+
+      const isMatch = (
+        (mIdStr !== '' && empIdStr !== '' && empIdStr === mIdStr) ||
+        (mName !== '' && assignedToStr.length > 0 && (assignedToStr.includes(mName) || mName.includes(assignedToStr))) ||
+        (mName !== '' && taskUsername.length > 0 && taskUsername === mName)
+      );
+
+      if (isMatch) {
+        assignedCount++;
+        const sid = (t.status_id !== undefined && t.status_id !== null) ? Number(t.status_id) : null;
+        const statusStr = String(t.status || '').toLowerCase().trim().replace(/[\s\-_]+/g, '');
+        if (sid === 3 || statusStr === 'completed' || statusStr === 'done' || statusStr === '3') {
+          completedCount++;
+        }
+      }
+    });
+
+    return { assigned: assignedCount, completed: completedCount };
+  };
+
+  useEffect(() => {
+    const fetchUsersAndTasks = async () => {
+      // 1. Collect all tasks across API and local storage
+      const localNewTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
+      const localTasks = JSON.parse(localStorage.getItem('myTasks') || '[]');
+      const generalTasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+      let apiTasks = [];
+
+      try {
+        const taskRes = await api.get('/tasks/?skip=0&limit=200');
+        if (taskRes.data && Array.isArray(taskRes.data)) {
+          apiTasks = taskRes.data;
+        }
+      } catch (err) {
+        console.warn('API /tasks endpoint unavailable in TeamMembers:', err?.message);
+      }
+
+      const taskMap = new Map();
+      [...apiTasks, ...localNewTasks, ...localTasks, ...generalTasks].forEach(t => {
+        const id = String(t.task_id || t.id || `${t.title || t.task || 'task'}_${t.assigned_to || t.employee_id || ''}`);
+        if (!taskMap.has(id)) {
+          taskMap.set(id, t);
+        }
+      });
+      const allTasks = Array.from(taskMap.values());
+
+      // 2. Collect all members added by admin or returned by API
       const localNewMembers = JSON.parse(localStorage.getItem('myNewMembers') || '[]');
       const localNewUsers = JSON.parse(localStorage.getItem('myNewUsers') || '[]');
+
       const allLocal = [...localNewMembers, ...localNewUsers].map(m => ({
         id: m.id || Date.now(),
         name: m.name || m.username,
         dept: m.dept || m.department || 'Development',
-        assigned: m.assigned || 0,
-        completed: m.completed || 0,
         status: m.status || 'Active',
         avatar: m.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name || m.username)}`
       }));
+
+      let rawMembers = [];
 
       try {
         const res = await api.get('/users/');
@@ -53,23 +110,35 @@ function TeamMembers() {
             id: u.id || u.user_id,
             name: u.username,
             dept: u.department || 'Development',
-            assigned: u.assigned_tasks_count || 0,
-            completed: u.completed_tasks_count || 0,
             status: u.is_active !== false ? 'Active' : 'Inactive',
             avatar: u.avatar || `https://randomuser.me/api/portraits/${i % 2 === 0 ? 'men' : 'women'}/${(i % 10) + 1}.jpg`
           }));
           const apiNames = new Set(apiMembers.map(m => m.name.toLowerCase()));
           const filteredLocal = allLocal.filter(m => !apiNames.has(m.name.toLowerCase()));
-          setMembers([...apiMembers, ...filteredLocal]);
-          return;
+          rawMembers = [...apiMembers, ...filteredLocal];
         }
       } catch (err) {
-        console.log('Backend /users endpoint unavailable, using default & local members.', err?.message);
+        console.warn('Backend /users endpoint error, using local members:', err?.message);
       }
 
-      setMembers(allLocal);
+      if (rawMembers.length === 0) {
+        rawMembers = allLocal;
+      }
+
+      // 3. Compute dynamic assigned and completed task counts
+      const finalMembers = rawMembers.map(m => {
+        const counts = computeMemberTaskCounts(m.name, m.id, allTasks);
+        return {
+          ...m,
+          assigned: counts.assigned,
+          completed: counts.completed
+        };
+      });
+
+      setMembers(finalMembers);
     };
-    fetchUsers();
+
+    fetchUsersAndTasks();
   }, []);
 
   // PHOTO UPLOAD LOGIC

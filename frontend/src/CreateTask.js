@@ -142,7 +142,7 @@ function CreateTask() {
                 placeholder="Enter task title"
                 value={taskForm.title}
                 onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-500"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-blue-500"
               />
             </div>
 
@@ -154,7 +154,7 @@ function CreateTask() {
                 placeholder="Enter task details and specifications"
                 value={taskForm.description}
                 onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 h-24"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-blue-500 h-24"
               />
             </div>
 
@@ -173,7 +173,7 @@ function CreateTask() {
                       due_date: e.target.value
                     })
                   }
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none"
                 />
               </div>
 
