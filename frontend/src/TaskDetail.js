@@ -1,22 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Edit2, Trash2, Calendar, User, HelpCircle, Layers, CheckCircle } from 'lucide-react';
 import Navbar from './Navbar';
 import api, { showToast } from './axios';
 
-const dummyTasks = [
-  { id: 1, title: 'Design Homepage Layout', dueDate: '2026-07-20T18:00:00Z', assignedTo: 'David Mailer', priority: 'High', status: 'in_progress', description: 'Create the home page design for the client\'s website.' },
-  { id: 2, title: 'Update Client Documents', dueDate: '2026-07-20T18:00:00Z', assignedTo: 'Sarah Wilson', priority: 'Medium', status: 'completed', description: 'Update all client documentation.' },
-  { id: 3, title: 'Prepare Weekly Report', dueDate: '2026-07-20T18:00:00Z', assignedTo: 'Ritik Verma', priority: 'Low', status: 'pending', description: 'Compile weekly progress report.' },
-];
+
 
 function TaskDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [task, setTask] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
-  
+  const [editing, setEditing] = useState(location.state?.edit || false);
+
   // Form states
   const [editForm, setEditForm] = useState({
     title: '',
@@ -90,26 +87,17 @@ function TaskDetail() {
         return;
       }
 
-      // Fallback to hardcoded dummy tasks (demo mode)
-      const found = dummyTasks.find(t => t.id === parseInt(id));
-      if (found) {
-        setTask(found);
-        setEditForm({
-          title: found.title,
-          description: found.description,
-          status: found.status,
-          priority: found.priority,
-          due_date: found.dueDate.slice(0, 16)
-        });
-      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    if (location.state?.edit) {
+      setEditing(true);
+    }
     fetchTaskDetails();
-  }, [id]);
+  }, [id, location.state]);
 
   const handleUpdate = async (e) => {
     e.preventDefault();
@@ -144,12 +132,10 @@ function TaskDetail() {
       } else {
         await api.put(`/tasks/${id}`, fullUpdate);
       }
-      showToast('Task updated successfully');
     } catch (err) {
       console.warn('API update failed, saving to localStorage only.', err);
       // Save to localStorage as fallback
       updateLocalTask(isAdmin ? fullUpdate : statusUpdate);
-      showToast('Task updated successfully');
     }
 
     setEditing(false);
@@ -161,17 +147,25 @@ function TaskDetail() {
       showToast('Deletions are only authorized for Admin accounts.', 'error');
       return;
     }
-    if (!window.confirm('Are you sure you want to delete this task?')) return;
+
+    // Always remove from localStorage first (covers local-only tasks)
+    const localTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
+    const updatedLocal = localTasks.filter(lt => String(lt.id || lt.task_id) !== String(id));
+    localStorage.setItem('myNewTasks', JSON.stringify(updatedLocal));
+
+    // Also remove from 'myTasks' and 'tasks' cache keys
+    const myTasksCache = JSON.parse(localStorage.getItem('myTasks') || '[]');
+    localStorage.setItem('myTasks', JSON.stringify(myTasksCache.filter(lt => String(lt.id || lt.task_id) !== String(id))));
+    const allTasksCache = JSON.parse(localStorage.getItem('tasks') || '[]');
+    localStorage.setItem('tasks', JSON.stringify(allTasksCache.filter(lt => String(lt.id || lt.task_id) !== String(id))));
 
     try {
       await api.delete(`/tasks/${id}`);
       showToast('Task deleted successfully');
-      navigate('/my-task');
     } catch (err) {
-      console.error(err);
-      showToast('Failed to delete task');
-      navigate('/my-task');
+      console.warn('API delete failed (task may be local-only):', err);
     }
+    navigate('/my-task');
   };
 
   if (loading) {
@@ -199,7 +193,7 @@ function TaskDetail() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12 flex flex-col gap-6">
-        
+
         {/* Header Toolbar */}
         <div className="flex items-center justify-between bg-[#0f172a]/60 border border-slate-800 p-5 rounded-2xl backdrop-blur-md shadow-xl w-full">
           <button

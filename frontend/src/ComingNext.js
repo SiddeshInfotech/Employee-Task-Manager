@@ -18,8 +18,8 @@ function ComingNext() {
         </div>
 
         <h2 className="text-3xl font-extrabold text-white mb-2">
-  Feature Coming Soon
-</h2>
+          Feature Coming Soon
+        </h2>
         <p className="text-sm text-slate-400 mb-8">
           The page or feature for path <code className="text-blue-400 bg-slate-900 px-2 py-0.5 rounded font-mono text-xs">{location.pathname}</code> is currently being finalized.
         </p>

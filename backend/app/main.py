@@ -8,9 +8,11 @@ from app.database import engine, Base
 from app.routers import (
     auth,
     tasks,
+    employees,
     notifications,
     dashboard,
-    reminders
+    reminders,
+    users
 )
 
 # Create database tables automatically
@@ -44,9 +46,11 @@ app.add_middleware(
 # Register routers under prefix (e.g., /api)
 app.include_router(auth.router, prefix=settings.API_V1_STR)
 app.include_router(tasks.router, prefix=settings.API_V1_STR)
+app.include_router(employees.router, prefix=settings.API_V1_STR)
 app.include_router(notifications.router, prefix=settings.API_V1_STR)
 app.include_router(dashboard.router, prefix=settings.API_V1_STR)
 app.include_router(reminders.router, prefix=settings.API_V1_STR)
+app.include_router(users.router, prefix=settings.API_V1_STR)
 
 
 @app.get("/", include_in_schema=False)

@@ -98,3 +98,205 @@ body {
     background: rgba(15, 23, 42, 0.7);
     border-color: rgba(255, 255, 255, 0.1);
 }
+
+/* =========================================================
+   Theme Modes: Light, Dark, Original
+   Applied globally across all frontend pages
+   ========================================================= */
+
+/* Light Theme: White background with black text */
+.theme-light,
+.theme-light body,
+.theme-light .app-bg {
+    background: #ffffff !important;
+    background-image: none !important;
+    color: #0f172a !important;
+}
+
+.theme-light .app-bg::after {
+    display: none !important;
+}
+
+.theme-light .glass-card {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #0f172a !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Light Theme Navbar */
+.theme-light nav,
+.theme-light nav.bg-\[\#0f172a\] {
+    background-color: #ffffff !important;
+    border-color: #e2e8f0 !important;
+    color: #0f172a !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+}
+
+.theme-light nav a {
+    color: #334155 !important;
+}
+
+.theme-light nav a:hover {
+    color: #2563eb !important;
+}
+
+.theme-light nav a.text-blue-500 {
+    color: #2563eb !important;
+}
+
+.theme-light nav h1.bg-clip-text {
+    background: none !important;
+    -webkit-background-clip: unset !important;
+    background-clip: unset !important;
+    -webkit-text-fill-color: #0f172a !important;
+    color: #0f172a !important;
+}
+
+.theme-light nav button.bg-slate-900 {
+    background-color: #f1f5f9 !important;
+    border-color: #cbd5e1 !important;
+    color: #334155 !important;
+}
+
+.theme-light nav button.bg-slate-900:hover {
+    background-color: #e2e8f0 !important;
+    color: #0f172a !important;
+}
+
+.theme-light nav span.text-slate-300 {
+    color: #334155 !important;
+}
+
+.theme-light nav div.bg-\[\#0f172a\] {
+    background-color: #ffffff !important;
+    border-color: #e2e8f0 !important;
+}
+
+.theme-light header,
+.theme-light main,
+.theme-light section,
+.theme-light aside,
+.theme-light footer {
+    color: #0f172a;
+}
+
+.theme-light .bg-\[\#0f172a\]\/60,
+.theme-light .bg-\[\#0f172a\]\/40,
+.theme-light .bg-\[\#090d16\],
+.theme-light .bg-slate-900,
+.theme-light .bg-slate-950 {
+    background-color: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+    color: #0f172a !important;
+}
+
+.theme-light .text-white {
+    color: #0f172a !important;
+}
+
+.theme-light .text-slate-100,
+.theme-light .text-slate-200,
+.theme-light .text-slate-300 {
+    color: #1e293b !important;
+}
+
+.theme-light .text-slate-400,
+.theme-light .text-slate-500 {
+    color: #64748b !important;
+}
+
+.theme-light .border-slate-800,
+.theme-light .border-slate-900,
+.theme-light .border-white\/10,
+.theme-light .border-white\/20 {
+    border-color: #cbd5e1 !important;
+}
+
+/* Dark Theme: Black background with white text */
+.theme-dark,
+.theme-dark body,
+.theme-dark .app-bg {
+    background: #000000 !important;
+    background-image: none !important;
+    color: #ffffff !important;
+}
+
+.theme-dark .app-bg::after {
+    display: none !important;
+}
+
+.theme-dark .glass-card {
+    background: #121212 !important;
+    border: 1px solid #282828 !important;
+    color: #ffffff !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8) !important;
+}
+
+/* Settings main card container in Dark mode */
+.theme-dark section.bg-white,
+.theme-dark .bg-white {
+    background-color: #121212 !important;
+    border-color: #282828 !important;
+    color: #ffffff !important;
+}
+
+.theme-dark header,
+.theme-dark nav,
+.theme-dark main,
+.theme-dark section,
+.theme-dark aside,
+.theme-dark footer {
+    color: #ffffff;
+}
+
+.theme-dark .bg-\[\#0f172a\]\/60,
+.theme-dark .bg-\[\#0f172a\]\/40,
+.theme-dark .bg-\[\#090d16\],
+.theme-dark .bg-slate-900,
+.theme-dark .bg-slate-950 {
+    background-color: #121212 !important;
+    border-color: #282828 !important;
+    color: #ffffff !important;
+}
+
+/* Inputs, Selects & Form controls in Dark Mode */
+.theme-dark input,
+.theme-dark select,
+.theme-dark textarea,
+.theme-dark .bg-slate-50 {
+    background-color: #1e1e1e !important;
+    color: #ffffff !important;
+    border-color: #3a3a3a !important;
+}
+
+.theme-dark select option {
+    background-color: #1e1e1e !important;
+    color: #ffffff !important;
+}
+
+/* Text visibility in Dark Mode */
+.theme-dark .text-slate-900,
+.theme-dark .text-slate-800,
+.theme-dark .text-slate-700,
+.theme-dark .text-slate-600 {
+    color: #ffffff !important;
+}
+
+.theme-dark .text-slate-500,
+.theme-dark .text-slate-400 {
+    color: #a1a1aa !important;
+}
+
+.theme-dark .border-slate-800,
+.theme-dark .border-slate-900,
+.theme-dark .border-slate-100,
+.theme-dark .border-slate-200 {
+    border-color: #282828 !important;
+}
+
+/* Original Theme: Default app background & styling */
+.theme-original .app-bg {
+    background: linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.85)), url('https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1920&q=80') center/cover no-repeat fixed;
+    background-attachment: fixed;
+}

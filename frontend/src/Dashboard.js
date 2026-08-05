@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell, PieChart, Pie } from 'recharts';
-import { LayoutDashboard, CheckSquare, BarChart3, Users, Settings, Plus, UserPlus, FileText, ArrowRight, Activity, Clock, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Bell, Mail, Search, LogOut, LayoutDashboard, CheckSquare, BarChart3, Users, Settings, Plus, UserPlus, FileText, ArrowRight } from 'lucide-react';
 import api, { showToast } from './axios';
 import { useTranslation } from 'react-i18next';
-import Navbar from './Navbar';
+import './DashboardAnimations.css';
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -17,108 +17,98 @@ function Dashboard() {
     unread_notifications: 3,
     overdue_tasks: 8
   });
-  const [showAddTaskModal, setShowAddTaskModal] = useState(false);
-  const [taskForm, setTaskForm] = useState({
-    title: '',
-    description: '',
-    status: 'pending',
-    priority: 'high',
-    due_date: '',
-    assigned_to_id: ''
-  });
+
   const [users, setUsers] = useState([]);
 
-  const username = (localStorage.getItem('username') || 'John').toLowerCase();
-  const rawUsername = localStorage.getItem('username') || 'John';
-  const userId = localStorage.getItem('userId') || localStorage.getItem('user_id') || localStorage.getItem('employee_id');
-  const role = (localStorage.getItem('role') || 'employee').toLowerCase();
-  const isAdmin = role === 'admin';
-  const [currentTasks, setCurrentTasks] = useState([]);
-
-  const isTaskForCurrentUser = (t) => {
-    if (isAdmin) return true;
-    const empIdStr = t.employee_id !== undefined && t.employee_id !== null ? String(t.employee_id) : (t.user_id !== undefined && t.user_id !== null ? String(t.user_id) : '');
-    const assignedToStr = (t.assigned_to || t.assignee || t.employee_name || t.username || t.createdBy || '').toLowerCase();
-    const taskUsername = (t.username || '').toLowerCase();
-    return (
-      (userId && empIdStr !== '' && empIdStr === String(userId)) ||
-      (username && assignedToStr.length > 0 && (assignedToStr.includes(username) || username.includes(assignedToStr))) ||
-      (username && taskUsername.length > 0 && taskUsername === username)
-    );
-  };
+  const username = localStorage.getItem('username') || 'John';
+  const role = localStorage.getItem('role') || 'employee';
+  const isAdmin = role.toLowerCase() === 'admin';
 
   useEffect(() => {
     const fetchSummary = async () => {
-      const localNewTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
-      const localTasks = JSON.parse(localStorage.getItem('myTasks') || '[]');
-      const generalTasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-      let apiTasks = [];
-
-      try {
-        const res = await api.get('/tasks/?skip=0&limit=200');
-        if (res.data && Array.isArray(res.data)) {
-          apiTasks = res.data;
-        }
-      } catch (err) {
-        console.warn('Dashboard /tasks API failed:', err?.message);
-      }
-
-      const taskMap = new Map();
-      [...apiTasks, ...localNewTasks, ...localTasks, ...generalTasks].forEach(t => {
-        const id = String(t.task_id || t.id || `${t.title || t.task || 'task'}_${t.assigned_to || t.employee_id || ''}`);
-        if (!taskMap.has(id)) {
-          taskMap.set(id, t);
-        }
-      });
-      let mergedTasks = Array.from(taskMap.values());
-
-      if (!isAdmin) {
-        mergedTasks = mergedTasks.filter(isTaskForCurrentUser);
-      }
-
-      setCurrentTasks(mergedTasks);
-
-      const isDone = (t) => Number(t.status_id) === 3 || String(t.status || '').toLowerCase() === 'completed' || String(t.status || '').toLowerCase() === 'done';
-      const isPending = (t) => Number(t.status_id) === 1 || String(t.status || '').toLowerCase() === 'pending';
-      const isInProgress = (t) => Number(t.status_id) === 2 || String(t.status || '').toLowerCase() === 'in_progress' || String(t.status || '').toLowerCase() === 'inprogress';
+      // Helper status classifiers (work on both numeric status_id and string status)
+      const isDone = (t) =>
+        Number(t.status_id) === 3 ||
+        ['completed', 'complete', 'done'].includes(String(t.status || '').toLowerCase().trim());
+      const isPending = (t) =>
+        Number(t.status_id) === 1 ||
+        ['pending', 'to-do', 'todo'].includes(String(t.status || '').toLowerCase().trim());
+      const isInProgress = (t) =>
+        Number(t.status_id) === 2 ||
+        ['in_progress', 'inprogress', 'in progress'].includes(String(t.status || '').toLowerCase().trim());
       const isOverdue = (t) => {
         if (isDone(t)) return false;
-        const due = t.due_date || t.dueDate || t.due;
+        const due = t.due_date || t.dueDate;
         return due && new Date(due) < new Date();
       };
 
-      setSummary({
-        total_tasks: mergedTasks.length,
-        completed_tasks: mergedTasks.filter(isDone).length,
-        pending_tasks: mergedTasks.filter(isPending).length,
-        in_progress_tasks: mergedTasks.filter(isInProgress).length,
-        overdue_tasks: mergedTasks.filter(isOverdue).length,
-        unread_notifications: 0
-      });
+      try {
+        // Primary source: /tasks/ is already scoped to the logged-in employee by the backend.
+        // Computing counts from actual task objects avoids status-name JOIN failures in /dashboard/summary.
+        const tasksRes = await api.get('/tasks/?skip=0&limit=200');
+        if (tasksRes.data && Array.isArray(tasksRes.data)) {
+          const apiTasks = tasksRes.data;
+
+          // Merge localStorage tasks that are NOT already in the API response
+          const localTasks = [
+            ...JSON.parse(localStorage.getItem('myNewTasks') || '[]'),
+            ...JSON.parse(localStorage.getItem('myTasks') || '[]')
+          ];
+          const apiIds = new Set(apiTasks.map(t => String(t.task_id || t.id)));
+          const apiTitles = new Set(apiTasks.map(t => String(t.task_title || t.title || t.task || t.name || '').toLowerCase().trim()));
+          const extraLocal = localTasks.filter(lt => {
+            const hasId = apiIds.has(String(lt.id || lt.task_id));
+            const hasTitle = apiTitles.has(String(lt.task_title || lt.title || lt.task || lt.name || '').toLowerCase().trim());
+            return !hasId && !hasTitle;
+          });
+          const allTasks = [...apiTasks, ...extraLocal];
+
+          // Fetch unread notification count separately (best-effort)
+          let unread = 0;
+          try {
+            const summaryRes = await api.get('/dashboard/summary');
+            if (summaryRes.data) unread = summaryRes.data.unread_notifications || 0;
+          } catch (_) { }
+
+          setSummary({
+            total_tasks: allTasks.length,
+            completed_tasks: allTasks.filter(isDone).length,
+            pending_tasks: allTasks.filter(isPending).length,
+            in_progress_tasks: allTasks.filter(isInProgress).length,
+            overdue_tasks: allTasks.filter(isOverdue).length,
+            unread_notifications: unread
+          });
+          return;
+        }
+      } catch (err) {
+        console.warn('Tasks API unavailable, falling back to localStorage.', err);
+      }
+
+      // Full fallback — compute from localStorage only
+      const localTasks = [
+        ...JSON.parse(localStorage.getItem('myNewTasks') || '[]'),
+        ...JSON.parse(localStorage.getItem('myTasks') || '[]')
+      ];
+      if (localTasks.length > 0) {
+        setSummary({
+          total_tasks: localTasks.length,
+          completed_tasks: localTasks.filter(isDone).length,
+          pending_tasks: localTasks.filter(isPending).length,
+          in_progress_tasks: localTasks.filter(isInProgress).length,
+          overdue_tasks: localTasks.filter(isOverdue).length,
+          unread_notifications: 0
+        });
+      }
+      // else keep hardcoded defaults as demo data
     };
 
     const fetchUsers = async () => {
       if (isAdmin) {
-        // Load from localStorage (admin-added members)
-        const localNewMembers = JSON.parse(localStorage.getItem('myNewMembers') || '[]');
-        const localNewUsers = JSON.parse(localStorage.getItem('myNewUsers') || '[]');
-        const localMembers = [...localNewMembers, ...localNewUsers].map(m => ({
-          id: m.id || m.username,
-          username: m.name || m.username
-        }));
-
         try {
           const res = await api.get('/users/');
-          if (res.data && res.data.length > 0) {
-            const apiNames = new Set(res.data.map(u => (u.username || '').toLowerCase()));
-            const extraLocal = localMembers.filter(m => !apiNames.has((m.username || '').toLowerCase()));
-            setUsers([...res.data, ...extraLocal]);
-          } else {
-            setUsers(localMembers);
-          }
+          if (res.data) setUsers(res.data);
         } catch (err) {
-          console.warn('Error fetching users from API, using local members:', err);
-          setUsers(localMembers);
+          console.error('Error fetching users', err);
         }
       }
     };
@@ -127,58 +117,16 @@ function Dashboard() {
     fetchUsers();
   }, []);
 
-  const handleAddTask = async (e) => {
-    e.preventDefault();
 
-    const statusMap = { pending: 1, in_progress: 2, completed: 3 };
-    const priorityMap = { high: 1, medium: 2, low: 3 };
-    const formattedDueDate = taskForm.due_date ? taskForm.due_date.split('T')[0] : null;
-    const assignedEmpId = taskForm.assigned_to_id ? Number(taskForm.assigned_to_id) : null;
 
-    // Find assigned employee name
-    const assignedUser = users.find(u => String(u.id) === String(taskForm.assigned_to_id));
-    const assignedUsername = assignedUser ? (assignedUser.username || assignedUser.name || '') : '';
-
-    const payload = {
-      task_title: taskForm.title,
-      task_description: taskForm.description,
-      employee_id: assignedEmpId,
-      status_id: statusMap[taskForm.status] || 1,
-      priority_id: priorityMap[taskForm.priority] || 1,
-      due_date: formattedDueDate
-    };
-
-    // Always save to localStorage so assigned employee can see the task
-    const localTask = {
-      id: Date.now(),
-      task_id: Date.now(),
-      task_title: taskForm.title,
-      title: taskForm.title,
-      task_description: taskForm.description,
-      description: taskForm.description,
-      status: taskForm.status,
-      status_id: statusMap[taskForm.status] || 1,
-      priority: taskForm.priority,
-      priority_id: priorityMap[taskForm.priority] || 1,
-      due_date: formattedDueDate,
-      employee_id: assignedEmpId,
-      assigned_to: assignedUsername,
-      username: assignedUsername,
-      createdAt: new Date().toISOString()
-    };
-    const existingTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
-    localStorage.setItem('myNewTasks', JSON.stringify([...existingTasks, localTask]));
-
-    try {
-      await api.post('/tasks/', payload);
-      showToast('Task added successfully!');
-    } catch (err) {
-      console.warn('API task save failed, saved locally:', err);
-      showToast('Task saved locally!');
-    }
-
-    setTaskForm({ title: '', description: '', status: 'pending', priority: 'high', due_date: '', assigned_to_id: '' });
-    setShowAddTaskModal(false);
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('role');
+    localStorage.removeItem('username');
+    localStorage.removeItem('employee_id');
+    localStorage.removeItem('user_id');
+    showToast('Logged out successfully.');
+    navigate('/login');
   };
 
   // Bar chart data derived from real summary counts
@@ -213,83 +161,164 @@ function Dashboard() {
   ];
 
   return (
-    <div className="page-wrapper relative overflow-hidden font-sans">
-      {/* Background Glows */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-600/10 blur-[120px] pointer-events-none"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-purple-600/10 blur-[120px] pointer-events-none"></div>
-
-      <Navbar />
-
-      <div className="max-w-7xl mx-auto z-10 relative fade-up" style={{ animationDelay: '0.1s' }}>
-        
-        {/* Page Header */}
-        <div className="page-header">
-          <div>
-            <h1 className="page-title">{t("welcome")}, <span className="gradient-text">{rawUsername}</span>!</h1>
-            <p className="page-sub">Here is your daily workflow and project overview.</p>
+    <div className="flex min-h-screen bg-transparent text-slate-100 font-sans">
+      {/* Sidebar - Gold Theme from Image 2 */}
+      <aside className="db-sidebar w-64 bg-[#b5893d] text-slate-900 flex flex-col justify-between flex-shrink-0 border-r border-[#967131] shadow-2xl">
+        <div>
+          {/* Sidebar User Header */}
+          <div className="p-6 border-b border-[#967131] flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-sm">
+              {username.slice(0, 2).toUpperCase()}
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-950 text-base leading-tight">{username}</h3>
+              <p className="text-[11px] text-slate-800 font-semibold tracking-wider uppercase"> {t("activeSession")}</p>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-             {isAdmin && (
-              <button onClick={() => setShowAddTaskModal(true)} className="btn-primary">
-                <Plus className="w-4 h-4" />
-                {t("addTask")}
-              </button>
-            )}
+
+          <nav className="p-4 flex flex-col gap-1">
+            <Link
+              to="/dashboard"
+              className="db-nav-item flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-900/10 hover:bg-slate-900/20 text-slate-950 font-bold transition-all text-sm no-underline"
+            >
+              <LayoutDashboard className="w-4 h-4 text-slate-900" />
+              {t("dashboard")}
+            </Link>
             {isAdmin && (
-              <Link to="/team">
-                <button className="btn-ghost">
-                  <UserPlus className="w-4 h-4" />
-                  {t("addEmployee")}
-                </button>
+              <Link
+                to="/team"
+                className="db-nav-item flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-900/15 text-slate-950 font-semibold transition-all text-sm no-underline"
+              >
+                <Users className="w-4 h-4 text-slate-900" />
+                {t("team")}
               </Link>
             )}
-          </div>
+            <Link
+              to="/my-task"
+              className="db-nav-item flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-900/15 text-slate-950 font-semibold transition-all text-sm no-underline"
+            >
+              <CheckSquare className="w-4 h-4 text-slate-900" />
+              {t("task")}
+            </Link>
+            {isAdmin && (
+              <Link
+                to="/reports"
+                className="db-nav-item flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-900/15 text-slate-950 font-semibold transition-all text-sm no-underline"
+              >
+                <BarChart3 className="w-4 h-4 text-slate-900" />
+                {t("report")}
+              </Link>
+            )}
+
+            <Link
+              to="/settings"
+              className="db-nav-item flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-900/15 text-slate-950 font-semibold transition-all text-sm no-underline"
+            >
+              <Settings className="w-4 h-4 text-slate-900" />
+              {t("settings")}
+            </Link>
+          </nav>
         </div>
 
-        {/* Dashboard Content Grid */}
-        <div className="flex flex-col gap-6">
-          
+        <div className="p-6 border-t border-[#967131] flex items-center gap-3 bg-slate-950/10">
+          <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs">
+            {role[0].toUpperCase()}
+          </div>
+          <div>
+            <h4 className="font-bold text-slate-950 text-xs">{username}</h4>
+            <p className="text-[10px] text-slate-900 font-bold uppercase tracking-wider">{role}</p>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col overflow-y-auto">
+        {/* Header toolbar */}
+        <header className="db-header px-8 py-5 bg-[#0f172a]/60 border-b border-slate-800/80 backdrop-blur-md flex items-center justify-between">
+          <h2 className="text-xl font-bold text-white">
+            {t("welcome")}, {username}!
+          </h2>
+
+          <div className="flex items-center gap-4">
+            {/* Header controls matching image 2 */}
+            <div className="relative hidden md:block">
+              <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder={t("search")}
+                className="pl-9 pr-4 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500 w-48"
+              />
+            </div>
+            <button className="db-header-btn p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 hover:text-white transition-all relative">
+              <Bell className="w-4 h-4" />
+              <span className="db-notification-dot absolute top-1 right-1 w-2 h-2 rounded-full bg-blue-500"></span>
+            </button>
+            <button className="db-header-btn p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 hover:text-white transition-all">
+              <Mail className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleLogout}
+              className="db-header-btn p-2 bg-slate-900 border border-slate-800 rounded-xl text-rose-400 hover:bg-rose-950/20 transition-all"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        </header>
+
+        {/* Dashboard Grid Content */}
+        <main className="p-8 flex flex-col gap-6 max-w-7xl w-full mx-auto">
           {/* Summary Stat Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            <div className="stat-card fade-up" style={{ animationDelay: '0.2s' }}>
-              <div className="icon-box bg-blue-500/10 text-blue-400 border border-blue-500/20"><Activity className="w-5 h-5"/></div>
-              <div className="number text-white">{summary.total_tasks}</div>
-              <div className="label">{t("totalTask")} <span className="text-blue-400 font-semibold ml-1">{t("global")}</span></div>
+            {/* Stat Card 1 - Total Tasks */}
+            <div className="db-stat-card bg-[#10b981] text-white p-5 rounded-2xl shadow-xl flex flex-col justify-between min-h-[110px]">
+              <span className="text-xs font-bold uppercase tracking-wider opacity-85">{t("totalTask")}</span>
+              <div className="flex items-baseline justify-between mt-2">
+                <span className="db-stat-number text-3xl font-extrabold">{summary.total_tasks}</span>
+                <span className="text-xs font-semibold bg-white/20 px-2 py-0.5 rounded-full"> {t("global")}</span>
+              </div>
             </div>
 
-            <div className="stat-card fade-up" style={{ animationDelay: '0.3s' }}>
-              <div className="icon-box bg-amber-500/10 text-amber-400 border border-amber-500/20"><Clock className="w-5 h-5"/></div>
-              <div className="number text-white">{summary.pending_tasks}</div>
-              <div className="label">{t("pendingTask")} <span className="text-amber-400 font-semibold ml-1">{t("todo")}</span></div>
+            {/* Stat Card 2 - Pending Tasks */}
+            <div className="db-stat-card bg-[#f59e0b] text-white p-5 rounded-2xl shadow-xl flex flex-col justify-between min-h-[110px]">
+              <span className="text-xs font-bold uppercase tracking-wider opacity-85">{t("pendingTask")}</span>
+              <div className="flex items-baseline justify-between mt-2">
+                <span className="db-stat-number text-3xl font-extrabold">{summary.pending_tasks}</span>
+                <span className="text-xs font-semibold bg-white/20 px-2 py-0.5 rounded-full"> {t("todo")}</span>
+              </div>
             </div>
 
-            <div className="stat-card fade-up" style={{ animationDelay: '0.4s' }}>
-              <div className="icon-box bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><CheckCircle2 className="w-5 h-5"/></div>
-              <div className="number text-white">{summary.completed_tasks}</div>
-              <div className="label">{t("completedTask")} <span className="text-emerald-400 font-semibold ml-1">{t("verified")}</span></div>
+            {/* Stat Card 3 - Completed Tasks */}
+            <div className="db-stat-card bg-[#2563eb] text-white p-5 rounded-2xl shadow-xl flex flex-col justify-between min-h-[110px]">
+              <span className="text-xs font-bold uppercase tracking-wider opacity-85">{t("completedTask")}</span>
+              <div className="flex items-baseline justify-between mt-2">
+                <span className="db-stat-number text-3xl font-extrabold">{summary.completed_tasks}</span>
+                <span className="text-xs font-semibold bg-white/20 px-2 py-0.5 rounded-full"> {t("verified")}</span>
+              </div>
             </div>
 
-            <div className="stat-card fade-up" style={{ animationDelay: '0.5s' }}>
-              <div className="icon-box bg-rose-500/10 text-rose-400 border border-rose-500/20"><AlertTriangle className="w-5 h-5"/></div>
-              <div className="number text-white">{summary.overdue_tasks}</div>
-              <div className="label">{t("overdueTask")} <span className="text-rose-400 font-semibold ml-1">{t("urgent")}</span></div>
+            {/* Stat Card 4 - Overdue Tasks */}
+            <div className="db-stat-card bg-[#ef4444] text-white p-5 rounded-2xl shadow-xl flex flex-col justify-between min-h-[110px]">
+              <span className="text-xs font-bold uppercase tracking-wider opacity-85">{t("overdueTask")}</span>
+              <div className="flex items-baseline justify-between mt-2">
+                <span className="db-stat-number text-3xl font-extrabold">{summary.overdue_tasks}</span>
+                <span className="text-xs font-semibold bg-white/20 px-2 py-0.5 rounded-full"> {t("urgent")}</span>
+              </div>
             </div>
           </div>
 
-          {/* Charts Row 1 */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="card p-6 fade-up" style={{ animationDelay: '0.6s' }}>
-              <h4 className="font-bold text-sm text-slate-200 mb-6 flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-blue-400"/> {t("taskProgress")}
-              </h4>
-              <div className="h-[280px]">
+          {/* Quick Info Grid (4 Charts + Logs) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Chart 1: Task Progress (Bar Chart) */}
+            <div className="db-chart-panel lg:col-span-6 bg-[#0f172a]/40 backdrop-blur-md border border-slate-800 p-5 rounded-2xl">
+              <h4 className="font-bold text-sm text-slate-300 mb-4 uppercase tracking-wider">{t("taskProgress")}</h4>
+              <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={barChartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                    <XAxis dataKey="name" stroke="rgba(255,255,255,0.4)" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis stroke="rgba(255,255,255,0.4)" fontSize={12} tickLine={false} axisLine={false} />
-                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} contentStyle={{ background: 'rgba(15,23,42,0.9)', backdropFilter:'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, color: '#f1f5f9', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)' }} />
-                    <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={60}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                    <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} />
+                    <YAxis stroke="#94a3b8" fontSize={11} />
+                    <Tooltip contentStyle={{ background: '#1e293b', border: 'none', borderRadius: 8, color: '#f8fafc' }} />
+                    <Bar dataKey="value" radius={[6, 6, 0, 0]}>
                       {barChartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
@@ -298,198 +327,203 @@ function Dashboard() {
                 </ResponsiveContainer>
               </div>
             </div>
+          </div>
 
-            <div className="card p-6 fade-up" style={{ animationDelay: '0.7s' }}>
-              <h4 className="font-bold text-sm text-slate-200 mb-6 flex items-center gap-2">
-                <Activity className="w-4 h-4 text-purple-400"/> {t("weeklyOverview")}
-              </h4>
-              <div className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={lineChartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                    <XAxis dataKey="name" stroke="rgba(255,255,255,0.4)" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis stroke="rgba(255,255,255,0.4)" fontSize={12} tickLine={false} axisLine={false} />
-                    <Tooltip contentStyle={{ background: 'rgba(15,23,42,0.9)', backdropFilter:'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, color: '#f1f5f9', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)' }} />
-                    <Legend wrapperStyle={{ fontSize: 12, paddingTop: 20 }} iconType="circle" />
-                    <Line type="monotone" dataKey="completed" stroke="#2563eb" strokeWidth={3} dot={{ strokeWidth: 2, r: 4 }} activeDot={{ r: 6, strokeWidth: 0 }} name={t("completed")} />
-                    <Line type="monotone" dataKey="created" stroke="#8b5cf6" strokeWidth={3} dot={{ strokeWidth: 2, r: 4 }} activeDot={{ r: 6, strokeWidth: 0 }} name={t("created")} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+          {/* Chart 2: Weekly Overview (Line Chart) */}
+          <div className="db-chart-panel lg:col-span-6 bg-[#0f172a]/40 backdrop-blur-md border border-slate-800 p-5 rounded-2xl">
+            <h4 className="font-bold text-sm text-slate-300 mb-4 uppercase tracking-wider">{t("weeklyOverview")}</h4>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={lineChartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                  <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} />
+                  <YAxis stroke="#94a3b8" fontSize={11} />
+                  <Tooltip contentStyle={{ background: '#1e293b', border: 'none', borderRadius: 8, color: '#f8fafc' }} />
+                  <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10 }} />
+                  <Line type="monotone" dataKey="completed" stroke="#2563eb" strokeWidth={3} name={t("completed")} activeDot={{ r: 8 }} />
+                  <Line type="monotone" dataKey="created" stroke="#f59e0b" strokeWidth={3} name={t("created")} />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
           </div>
 
-          {/* Secondary Stats Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="card p-6 fade-up" style={{ animationDelay: '0.8s' }}>
-              <h4 className="font-bold text-sm text-slate-200 mb-6">{t("priorityDistribution")}</h4>
-              <div className="h-[220px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={priorityData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={5} stroke="none">
-                      {priorityData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={{ background: 'rgba(15,23,42,0.9)', backdropFilter:'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, color: '#f1f5f9' }} itemStyle={{ color: '#fff' }} />
-                    <Legend verticalAlign="bottom" height={36} iconType="circle" />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
+          {/* Chart 3: Priority Overview (Pie Chart) */}
+          <div className="db-chart-panel lg:col-span-4 bg-[#0f172a]/40 backdrop-blur-md border border-slate-800 p-5 rounded-2xl flex flex-col">
+            <h4 className="font-bold text-sm text-slate-300 mb-4 uppercase tracking-wider">{t("priorityDistribution")}</h4>
+            <div className="h-48 flex-1">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={priorityData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={5}>
+                    {priorityData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ background: '#1e293b', border: 'none', borderRadius: 8, color: '#f8fafc' }} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                </PieChart>
+              </ResponsiveContainer>
             </div>
+          </div>
 
-            <div className="card p-6 fade-up" style={{ animationDelay: '0.9s' }}>
-               <h4 className="font-bold text-sm text-slate-200 mb-6">{t("departmentWorkload")}</h4>
-               <div className="h-[220px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={departmentData} layout="vertical" margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
-                    <XAxis type="number" stroke="rgba(255,255,255,0.4)" fontSize={11} tickLine={false} axisLine={false} />
-                    <YAxis dataKey="name" type="category" stroke="rgba(255,255,255,0.8)" fontSize={11} tickLine={false} axisLine={false} />
-                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} contentStyle={{ background: 'rgba(15,23,42,0.9)', backdropFilter:'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, color: '#f1f5f9' }} />
-                    <Bar dataKey="tasks" fill="#059669" radius={[0, 4, 4, 0]} maxBarSize={20} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+          {/* Chart 4: Tasks by Department (Bar Chart) */}
+          <div className="db-chart-panel lg:col-span-4 bg-[#0f172a]/40 backdrop-blur-md border border-slate-800 p-5 rounded-2xl">
+            <h4 className="font-bold text-sm text-slate-300 mb-4 uppercase tracking-wider">{t("departmentWorkload")}</h4>
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={departmentData} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                  <XAxis type="number" stroke="#94a3b8" fontSize={10} />
+                  <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={10} width={70} />
+                  <Tooltip contentStyle={{ background: '#1e293b', border: 'none', borderRadius: 8, color: '#f8fafc' }} />
+                  <Bar dataKey="tasks" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
+          </div>
 
-            <div className="card p-6 flex flex-col justify-between fade-up" style={{ animationDelay: '1.0s' }}>
-              <div>
-                <h4 className="font-bold text-sm text-slate-200 mb-2">{t("quickNavigation")}</h4>
-                <p className="text-sm text-slate-400 mb-6">{t("jumpDirectly")}</p>
-              </div>
-              <div className="flex flex-col gap-3">
-                {isAdmin && (
-                  <Link to="/manage-users" className="flex items-center justify-between p-4 rounded-xl bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.15)] transition-all text-sm font-semibold text-white group">
-                    <span className="flex items-center gap-3"><Users className="w-4 h-4 text-blue-400"/> {t("manageEmployees")}</span>
-                    <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-blue-400 transition-colors group-hover:translate-x-1" />
-                  </Link>
-                )}
-                <Link to="/my-task" className="flex items-center justify-between p-4 rounded-xl bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.15)] transition-all text-sm font-semibold text-white group">
-                   <span className="flex items-center gap-3"><CheckSquare className="w-4 h-4 text-emerald-400"/> {t("manageTasks")}</span>
-                   <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 transition-colors group-hover:translate-x-1" />
+          {/* Quick Actions Card */}
+          <div className="db-quick-nav-panel lg:col-span-4 bg-[#0f172a]/40 backdrop-blur-md border border-slate-800 p-5 rounded-2xl flex flex-col justify-between">
+            <div>
+              <h4 className="font-bold text-sm text-slate-300 mb-3 uppercase tracking-wider">{t("quickNavigation")}</h4>
+              <p className="text-xs text-slate-400 mb-4">{t("jumpDirectly")}</p>
+            </div>
+            <div className="flex flex-col gap-2">
+              {role === "admin" && (
+                <Link
+                  to="/manage-users"
+                  className="db-quick-link flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-blue-500/50 transition-all text-xs font-semibold no-underline text-white"
+                >
+                  {t("manageEmployees")}
+                  <ArrowRight className="w-4 h-4 text-blue-500" />
                 </Link>
+              )}
+              <Link to="/my-task" className="db-quick-link flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/50 hover:bg-slate-850 transition-all text-xs font-semibold no-underline text-white">
+                {t("manageTasks")} <ArrowRight className="w-4 h-4 text-emerald-500" />
+              </Link>
+            </div>
+          </div>
+
+          {/* Recent Activities List */}
+          <div className="db-activity-panel lg:col-span-6 bg-[#0f172a]/40 backdrop-blur-md border border-slate-800 p-5 rounded-2xl">
+            <h4 className="font-bold text-sm text-slate-300 mb-4 uppercase tracking-wider">
+              {t("recentActivities")}
+            </h4>
+            <div className="flex flex-col gap-4">
+              <div className="db-activity-item flex items-center justify-between border-b border-slate-800/60 pb-3">
+                <div>
+                  <p className="text-xs font-semibold text-white">
+                    {t("ramCompleted")} <span className="text-blue-400">"design mockup"</span>
+                  </p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    {t("marketingDepartment")}
+                  </p>
+                  <span className="text-[10px] text-slate-400">
+                    {t("tenMinsAgo")}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-b border-slate-800/60 pb-3">
+                  <div>
+                    <p className="text-xs font-semibold text-white">
+                      {t("sitaAddedTask")} <span className="text-amber-400">"Update Docs"</span>
+                    </p>
+
+                    <p className="text-[10px] text-slate-500 mt-0.5">
+                      {t("developmentDepartment")}
+                    </p>
+                  </div>
+                  <span className="text-[10px] text-slate-400">
+                    {t("thirtyMinsAgo")}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-white">
+                      {t("ashuCommented")} <span className="text-emerald-400">"Client Meeting"</span>
+                    </p>
+
+                    <p className="text-[10px] text-slate-500 mt-0.5">
+                      {t("designDepartment")}
+                    </p>
+                  </div>
+                  <span className="text-[10px] text-slate-400">
+                    {t("oneHourAgo")}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Upcoming Deadlines */}
+            <div className="lg:col-span-6 bg-[#0f172a]/40 backdrop-blur-md border border-slate-800 p-5 rounded-2xl">
+              <h4 className="font-bold text-sm text-slate-300 mb-4 uppercase tracking-wider"> {t("upcomingDeadlines")}</h4>
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between border-b border-slate-800/60 pb-3">
+                  <div>
+                    <p className="text-xs font-semibold text-white">{t("websiteUpdate")}</p>
+                    <p className="text-[10px] text-slate-400">{t("criticalReleaseDeadline")}</p>
+                  </div>
+                  <span className="text-xs font-bold text-amber-500"> {t("due")}: Apr 25</span>
+                </div>
+                <div className="flex items-center justify-between border-b border-slate-800/60 pb-3">
+                  <div>
+                    <p className="text-xs font-semibold text-white">{t("teamMeeting")}</p>
+                    <p className="text-[10px] text-slate-400">{t("monthlyCoordination")}</p>
+                  </div>
+                  <span className="text-xs font-bold text-amber-500">{t("due")}: Apr 27</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-white">{t("reportSubmission")}</p>
+                    <p className="text-[10px] text-slate-400">{t("q2FinancialReports")}</p>
+                  </div>
+                  <span className="text-xs font-bold text-amber-500">{t("due")}: Apr 28</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+
+          {/* Action Row Buttons */}
+          <div className="flex flex-wrap gap-4 mt-4">
+            {isAdmin && (
+              <Link to="/create-task" className="no-underline">
+                <button className="db-action-btn flex items-center gap-2 px-6 py-3 bg-[#2563eb] hover:bg-blue-700 text-white rounded-xl font-semibold">
+                  <Plus className="w-5 h-5" />
+                  {t("addTask")}
+                </button>
+              </Link>
+            )}
+
+            {isAdmin && (
+              <Link to="/team" className="no-underline">
+                <button className="db-action-btn flex items-center gap-2 px-6 py-3 bg-[#10b981] hover:bg-emerald-700 text-white rounded-xl font-semibold shadow-lg shadow-emerald-500/10">
+                  <UserPlus className="w-5 h-5" />
+                  {t("addEmployee")}
+                </button>
+              </Link>
+            )}
+
+            {isAdmin && (
+              <Link to="/reports" className="no-underline">
+                <button className="db-action-btn flex items-center gap-2 px-6 py-3 bg-[#f59e0b] hover:bg-amber-600 text-white rounded-xl font-semibold shadow-lg shadow-amber-500/10">
+                  <FileText className="w-5 h-5" />
+                  {t("generateReport")}
+                </button>
+              </Link>
+            )}
+          </div>
+        </main>
 
         {/* Footer */}
-        <footer className="mt-16 text-center text-sm text-slate-500 font-medium">
-          <p>{t("footerText")}</p>
+        <footer className="db-footer w-full bg-[#090d16] border-t border-slate-900 py-8 px-6 text-center text-xs text-slate-500 mt-auto">
+          <p className="mb-2">
+            {t("footerText")}
+          </p>
+          <p><span className="text-slate-400 font-semibold"></span></p>
         </footer>
       </div>
 
-      {/* Add Task Modal */}
-      {showAddTaskModal && (
-        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 fade-up">
-          <div className="glass-dark border border-[rgba(255,255,255,0.1)] rounded-2xl shadow-2xl max-w-md w-full p-8 relative">
-            <h3 className="text-xl font-bold text-white mb-6 tracking-tight">{t("createNewTask")}</h3>
 
-            <form onSubmit={handleAddTask} className="flex flex-col gap-5">
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t("title")}</label>
-                <input
-                  type="text"
-                  required
-                  placeholder={t("taskTitlePlaceholder")}
-                  value={taskForm.title}
-                  onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
-                  className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition-all placeholder:text-slate-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t("description")}</label>
-                <textarea
-                  required
-                  placeholder={t("taskDescriptionPlaceholder")}
-                  value={taskForm.description}
-                  onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
-                  className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition-all placeholder:text-slate-500 h-28 resize-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t("status")}</label>
-                  <select
-                    value={taskForm.status}
-                    onChange={(e) => setTaskForm({ ...taskForm, status: e.target.value })}
-                    className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition-all appearance-none"
-                  >
-                    <option value="pending" className="bg-slate-900">{t("pending")}</option>
-                    <option value="in_progress" className="bg-slate-900">{t("inProgress")}</option>
-                    <option value="completed" className="bg-slate-900">{t("completed")}</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t("priority")}</label>
-                  <select
-                    value={taskForm.priority}
-                    onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value })}
-                    className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition-all appearance-none"
-                  >
-                    <option value="high" className="bg-slate-900">{t("high")}</option>
-                    <option value="medium" className="bg-slate-900">{t("medium")}</option>
-                    <option value="low" className="bg-slate-900">{t("low")}</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{t("dueDate")}</label>
-                <input
-                  type="datetime-local"
-                  required
-                  value={taskForm.due_date ? taskForm.due_date.slice(0, 16) : ''}
-                  onChange={(e) => setTaskForm({ ...taskForm, due_date: new Date(e.target.value).toISOString() })}
-                  className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition-all"
-                  style={{ colorScheme: 'dark' }}
-                />
-              </div>
-
-              {isAdmin && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Assign To Employee</label>
-                  <select
-                    value={taskForm.assigned_to_id}
-                    onChange={(e) => setTaskForm({ ...taskForm, assigned_to_id: e.target.value })}
-                    className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition-all appearance-none"
-                  >
-                    <option value="" className="bg-slate-900">
-                      {users.length > 0 ? '— Select Employee —' : '— No employees added yet —'}
-                    </option>
-                    {users.map(u => (
-                      <option key={u.id} value={u.id} className="bg-slate-900">{u.username || u.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div className="flex gap-4 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowAddTaskModal(false)}
-                  className="btn-ghost flex-1 justify-center"
-                >
-                  {t("cancel")}
-                </button>
-                <button
-                  type="submit"
-                  className="btn-primary flex-1 justify-center"
-                >
-                  {t("createTask")}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
 export default Dashboard;
-

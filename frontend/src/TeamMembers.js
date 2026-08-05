@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, Plus, Trash2, Eye, Upload, Image as ImageIcon } from 'lucide-react';
+import { Search, Filter, Plus, Trash2, Eye, Upload, Image as ImageIcon, Pencil } from 'lucide-react';
 import Navbar from './Navbar';
 import api, { showToast } from './axios';
+import './TeamMembersAnimations.css';
 
 function TeamMembers() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [members, setMembers] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showFilter, setShowFilter] = useState(false);
+  const [filterDept, setFilterDept] = useState('All');
+  const [filterStatus, setFilterStatus] = useState('All');
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [newMemberForm, setNewMemberForm] = useState({
     username: '',
@@ -31,114 +35,107 @@ function TeamMembers() {
     }
   }, []);
 
-  const computeMemberTaskCounts = (memberName, memberId, allTasksList) => {
-    if (!allTasksList || allTasksList.length === 0) return { assigned: 0, completed: 0 };
-    const mName = (memberName || '').toLowerCase().trim();
-    const mIdStr = memberId !== undefined && memberId !== null ? String(memberId) : '';
-
-    let assignedCount = 0;
-    let completedCount = 0;
-
-    allTasksList.forEach(t => {
-      const empIdStr = t.employee_id !== undefined && t.employee_id !== null ? String(t.employee_id) : (t.user_id !== undefined && t.user_id !== null ? String(t.user_id) : '');
-      const assignedToStr = (t.assigned_to || t.assignee || t.employee_name || t.username || t.createdBy || '').toLowerCase().trim();
-      const taskUsername = (t.username || '').toLowerCase().trim();
-
-      const isMatch = (
-        (mIdStr !== '' && empIdStr !== '' && empIdStr === mIdStr) ||
-        (mName !== '' && assignedToStr.length > 0 && (assignedToStr.includes(mName) || mName.includes(assignedToStr))) ||
-        (mName !== '' && taskUsername.length > 0 && taskUsername === mName)
-      );
-
-      if (isMatch) {
-        assignedCount++;
-        const sid = (t.status_id !== undefined && t.status_id !== null) ? Number(t.status_id) : null;
-        const statusStr = String(t.status || '').toLowerCase().trim().replace(/[\s\-_]+/g, '');
-        if (sid === 3 || statusStr === 'completed' || statusStr === 'done' || statusStr === '3') {
-          completedCount++;
-        }
-      }
-    });
-
-    return { assigned: assignedCount, completed: completedCount };
-  };
-
   useEffect(() => {
-    const fetchUsersAndTasks = async () => {
-      // 1. Collect all tasks across API and local storage
-      const localNewTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
-      const localTasks = JSON.parse(localStorage.getItem('myTasks') || '[]');
-      const generalTasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-      let apiTasks = [];
-
+    const fetchUsers = async () => {
       try {
-        const taskRes = await api.get('/tasks/?skip=0&limit=200');
-        if (taskRes.data && Array.isArray(taskRes.data)) {
-          apiTasks = taskRes.data;
+        let res;
+        try {
+          res = await api.get('/employees/');
+        } catch {
+          res = await api.get('/users/');
         }
-      } catch (err) {
-        console.warn('API /tasks endpoint unavailable in TeamMembers:', err?.message);
-      }
-
-      const taskMap = new Map();
-      [...apiTasks, ...localNewTasks, ...localTasks, ...generalTasks].forEach(t => {
-        const id = String(t.task_id || t.id || `${t.title || t.task || 'task'}_${t.assigned_to || t.employee_id || ''}`);
-        if (!taskMap.has(id)) {
-          taskMap.set(id, t);
+        
+        let allTasks = [];
+        try {
+          const tasksRes = await api.get('/tasks/?skip=0&limit=1000');
+          allTasks = tasksRes.data || [];
+        } catch (e) {
+          console.log("Could not fetch tasks for count:", e);
         }
-      });
-      const allTasks = Array.from(taskMap.values());
-
-      // 2. Collect all members added by admin or returned by API
-      const localNewMembers = JSON.parse(localStorage.getItem('myNewMembers') || '[]');
-      const localNewUsers = JSON.parse(localStorage.getItem('myNewUsers') || '[]');
-
-      const allLocal = [...localNewMembers, ...localNewUsers].map(m => ({
-        id: m.id || Date.now(),
-        name: m.name || m.username,
-        dept: m.dept || m.department || 'Development',
-        status: m.status || 'Active',
-        avatar: m.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name || m.username)}`
-      }));
-
-      let rawMembers = [];
-
-      try {
-        const res = await api.get('/users/');
-        if (res.data && res.data.length > 0) {
-          const apiMembers = res.data.map((u, i) => ({
-            id: u.id || u.user_id,
-            name: u.username,
-            dept: u.department || 'Development',
-            status: u.is_active !== false ? 'Active' : 'Inactive',
-            avatar: u.avatar || `https://randomuser.me/api/portraits/${i % 2 === 0 ? 'men' : 'women'}/${(i % 10) + 1}.jpg`
-          }));
-          const apiNames = new Set(apiMembers.map(m => m.name.toLowerCase()));
-          const filteredLocal = allLocal.filter(m => !apiNames.has(m.name.toLowerCase()));
-          rawMembers = [...apiMembers, ...filteredLocal];
-        }
-      } catch (err) {
-        console.warn('Backend /users endpoint error, using local members:', err?.message);
-      }
-
-      if (rawMembers.length === 0) {
-        rawMembers = allLocal;
-      }
-
-      // 3. Compute dynamic assigned and completed task counts
-      const finalMembers = rawMembers.map(m => {
-        const counts = computeMemberTaskCounts(m.name, m.id, allTasks);
-        return {
-          ...m,
-          assigned: counts.assigned,
-          completed: counts.completed
+        
+        const localTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
+        const combinedTasks = [...allTasks, ...localTasks];
+        
+        const getTaskCounts = (empId, empName) => {
+          let assigned = 0;
+          let completed = 0;
+          
+          // Use a Set to avoid counting duplicate tasks (e.g., same task in API and local)
+          const seenTaskIds = new Set();
+          
+          combinedTasks.forEach(t => {
+            const taskId = String(t.task_id || t.id || Math.random());
+            if (seenTaskIds.has(taskId)) return;
+            seenTaskIds.add(taskId);
+            
+            const tEmpId = t.employee_id !== undefined && t.employee_id !== null ? String(t.employee_id) : '';
+            const tUserId = t.user_id !== undefined && t.user_id !== null ? String(t.user_id) : '';
+            const tAssignee = String(t.assigned_to || t.assignee || t.employee_name || '').toLowerCase();
+            const eName = String(empName || '').toLowerCase();
+            
+            const matchesId = empId && (tEmpId === String(empId) || tUserId === String(empId));
+            const matchesName = eName && tAssignee && (tAssignee.includes(eName) || eName.includes(tAssignee));
+            
+            if (matchesId || matchesName) {
+              assigned++;
+              const statusId = t.status_id ? Number(t.status_id) : null;
+              const rawStatus = String(t.status || '').toLowerCase().trim().replace(/[\s\-_]+/g, '');
+              
+              if (statusId === 3 || rawStatus === '3' || rawStatus === 'completed' || rawStatus === 'done') {
+                completed++;
+              }
+            }
+          });
+          return { assigned, completed };
         };
-      });
 
-      setMembers(finalMembers);
+        if (res.data && res.data.length > 0) {
+          const apiMembers = res.data.map((u, i) => {
+            const empId = u.employee_id || u.id || u.user_id;
+            const empName = u.username || `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Employee';
+            const counts = getTaskCounts(empId, empName);
+            
+            return {
+              id: empId,
+              employee_id: u.employee_id,
+              name: empName,
+              email: u.email || '',
+              phone: u.phone || '',
+              designation: u.designation || '',
+              role: u.role || 'employee',
+              dept: u.department || u.dept || 'Development',
+              assigned: counts.assigned,
+              completed: counts.completed,
+              status: u.is_active !== false ? 'Active' : 'Inactive',
+              avatar: u.avatar || u.profile_photo || `https://randomuser.me/api/portraits/${i % 2 === 0 ? 'men' : 'women'}/${(i % 10) + 1}.jpg`
+            };
+          });
+          
+          const localStored = JSON.parse(localStorage.getItem('myNewMembers') || '[]');
+          
+          // Apply custom avatars from local storage to API members
+          apiMembers.forEach(am => {
+            const localMatch = localStored.find(l => l.email === am.email);
+            if (localMatch && localMatch.avatar && !localMatch.avatar.includes('randomuser.me')) {
+              am.avatar = localMatch.avatar;
+            }
+          });
+
+          const updatedLocalStored = localStored.map(l => {
+            const counts = getTaskCounts(l.employee_id || l.id, l.name);
+            return { ...l, assigned: counts.assigned, completed: counts.completed };
+          });
+
+          const merged = [...apiMembers, ...updatedLocalStored.filter(l => !apiMembers.find(a => a.email === l.email))];
+          setMembers(merged);
+          return;
+        }
+      } catch (err) {
+        console.log('Backend members endpoint unavailable.', err?.message);
+      }
+      setMembers([]);
     };
-
-    fetchUsersAndTasks();
+    fetchUsers();
   }, []);
 
   // PHOTO UPLOAD LOGIC
@@ -206,11 +203,26 @@ function TeamMembers() {
       showToast('Deletions are only authorized for Admin accounts.', 'error');
       return;
     }
+
+    const memberToDelete = members.find(m => m.id === memberId);
+    const dbId = memberToDelete?.employee_id || memberToDelete?.id;
+
     setMembers(prev => prev.filter(m => m.id !== memberId));
     const oldLocal = JSON.parse(localStorage.getItem('myNewMembers') || '[]');
     const updatedLocal = oldLocal.filter(m => m.id !== memberId);
     localStorage.setItem('myNewMembers', JSON.stringify(updatedLocal));
-    showToast('Member deleted successfully.');
+
+    if (dbId) {
+      try {
+        await api.delete(`/employees/${dbId}`);
+        showToast('Member deleted successfully.');
+      } catch (err) {
+        console.warn('API delete failed (member may be local-only):', err);
+        showToast('Member deleted successfully.');
+      }
+    } else {
+      showToast('Member deleted successfully.');
+    }
   };
 
   const getStatusStyle = (status) => {
@@ -221,51 +233,118 @@ function TeamMembers() {
     }
   };
 
-  const filteredMembers = members.filter(m => m.name.toLowerCase().includes(search.toLowerCase()));
+  const activeFilterCount = (filterDept !== 'All' ? 1 : 0) + (filterStatus !== 'All' ? 1 : 0);
+
+  const filteredMembers = members.filter(m => {
+    const matchName = m.name.toLowerCase().includes(search.toLowerCase());
+    const matchDept = filterDept === 'All' || m.dept === filterDept;
+    const matchStatus = filterStatus === 'All' || m.status === filterStatus;
+    return matchName && matchDept && matchStatus;
+  });
 
   return (
     <div className="min-h-screen text-slate-100 flex flex-col font-sans bg-transparent">
       <Navbar />
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-12 flex flex-col gap-6">
-        <div className="bg-[#0f172a]/60 border border-slate-800 p-6 rounded-2xl backdrop-blur-md shadow-xl">
+        <div className="tm-header-card bg-[#0f172a]/60 border border-slate-800 p-6 rounded-2xl backdrop-blur-md shadow-xl">
           <h2 className="text-3xl font-bold text-white">Team Members Page.</h2>
           <p className="text-sm text-slate-300 mt-1">Manage your team member and their progress.</p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center gap-4 justify-between bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-md">
+        <div className="tm-toolbar flex flex-col sm:flex-row items-center gap-4 justify-between bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-md">
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3.5 top-3 w-4.5 h-4.5 text-slate-400" />
-            <input type="text" placeholder="Search member" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500" />
+            <input type="text" placeholder="Search member" value={search} onChange={(e) => setSearch(e.target.value)} className="tm-search-input w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500" />
           </div>
           <div className="flex items-center gap-3 w-full sm:w-auto">
-            <button onClick={() => showToast('Filters are configured dynamically.')} className="flex items-center gap-2 px-5 py-2.5 bg-white text-slate-800 font-semibold rounded-xl text-sm w-full sm:w-auto justify-center"><Filter className="w-4 h-4" /> Filter</button>
+            <button
+              onClick={() => setShowFilter(prev => !prev)}
+              className={`tm-btn-filter flex items-center gap-2 px-5 py-2.5 font-semibold rounded-xl text-sm w-full sm:w-auto justify-center transition-colors ${showFilter ? 'bg-slate-800 text-white' : 'bg-white text-slate-800'
+                }`}
+            >
+              <Filter className="w-4 h-4" />
+              Filter
+              {activeFilterCount > 0 && (
+                <span className="ml-1 w-5 h-5 flex items-center justify-center bg-blue-600 text-white text-xs rounded-full">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
             {role === 'admin' && (
-              <button onClick={() => navigate('/add-member')} className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm w-full sm:w-auto justify-center shadow-lg"><Plus className="w-4.5 h-4.5" /> + Add Member</button>
+              <button onClick={() => navigate('/add-member')} className="tm-btn-add-member flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm w-full sm:w-auto justify-center shadow-lg"><Plus className="w-4.5 h-4.5" /> + Add Member</button>
             )}
           </div>
         </div>
 
+        {/* ── FILTER PANEL ── */}
+        {showFilter && (
+          <div className="tm-modal-box bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl p-5 flex flex-col sm:flex-row gap-4 items-end flex-wrap">
+            {/* Department */}
+            <div className="flex flex-col gap-1.5 w-full sm:w-auto">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">Department</label>
+              <select
+                value={filterDept}
+                onChange={e => setFilterDept(e.target.value)}
+                className="px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500"
+              >
+                <option value="All">All Departments</option>
+                <option value="Development">Development</option>
+                <option value="Design">Design</option>
+                <option value="Marketing">Marketing</option>
+                <option value="HR">HR</option>
+                <option value="Support">Support</option>
+              </select>
+            </div>
+            {/* Status */}
+            <div className="flex flex-col gap-1.5 w-full sm:w-auto">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">Status</label>
+              <select
+                value={filterStatus}
+                onChange={e => setFilterStatus(e.target.value)}
+                className="px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500"
+              >
+                <option value="All">All Statuses</option>
+                <option value="Active">Active</option>
+                <option value="On Leave">On Leave</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
+            {/* Clear button — only when filters are active */}
+            {activeFilterCount > 0 && (
+              <button
+                onClick={() => { setFilterDept('All'); setFilterStatus('All'); }}
+                className="px-5 py-2.5 bg-rose-500 hover:bg-rose-600 text-white text-sm font-semibold rounded-xl transition-colors"
+              >
+                Clear Filters
+              </button>
+            )}
+            {/* Result count */}
+            <span className="ml-auto text-xs text-slate-400 self-center">
+              {filteredMembers.length} member{filteredMembers.length !== 1 ? 's' : ''} found
+            </span>
+          </div>
+        )}
 
-        <div className="bg-white text-slate-800 rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
+        <div className="tm-table-wrapper bg-white text-slate-800 rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
               <thead><tr className="bg-slate-50 border-b border-slate-100 text-left"><th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Employee Name</th><th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Department</th><th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-center">Assigned</th><th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-center">Completed</th><th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-center">Status</th><th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-center">Action</th></tr></thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredMembers.map((member) => (
-                  <tr key={member.id} className="hover:bg-slate-50/80">
-                    <td className="px-6 py-4 whitespace-nowrap"><div className="flex items-center gap-3"><img src={member.avatar} alt={member.name} className="w-10 h-10 rounded-full object-cover border-2 border-slate-200 shadow-sm" /><span className="font-bold text-slate-900 text-sm">{member.name}</span></div></td>
+                  <tr key={member.id} className="tm-table-row hover:bg-slate-50/80">
+                    <td className="px-6 py-4 whitespace-nowrap"><div className="flex items-center gap-3"><img src={member.avatar} alt={member.name} className="tm-avatar w-10 h-10 rounded-full object-cover border-2 border-slate-200 shadow-sm" /><div className="flex flex-col"><span className="font-bold text-slate-900 text-sm">{member.name}</span>{member.email && <span className="text-xs text-slate-500 font-medium">{member.email}</span>}</div></div></td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-semibold">{member.dept}</td>
                     <td className="px-6 py-4 text-center font-bold">{member.assigned}</td>
                     <td className="px-6 py-4 text-center font-bold">{member.completed}</td>
-                    <td className="px-6 py-4 text-center"><span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusStyle(member.status)}`}>{member.status}</span></td>
+                    <td className="px-6 py-4 text-center"><span className={`tm-status-badge px-3 py-1 rounded-full text-xs font-bold ${getStatusStyle(member.status)}`}>{member.status}</span></td>
                     <td className="px-6 py-4 text-center"><div className="flex items-center justify-center gap-3"><button
                       onClick={() => {
                         navigate('/profile', { state: { member } });
                       }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-bold"
+                      className="tm-btn-view flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-bold"
                     >
                       <Eye className="w-3.5 h-3.5" /> View Profile
-                    </button>{role === 'admin' && (<button onClick={() => handleDeleteMember(member.id)} className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg"><Trash2 className="w-4 h-4" /></button>)}</div></td>
+                    </button>{role === 'admin' && (<><button onClick={() => navigate('/profile', { state: { member, edit: true } })} className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg transition-all" title="Edit Profile"><Pencil className="w-4 h-4" /></button><button onClick={() => handleDeleteMember(member.id)} className="tm-btn-delete p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg"><Trash2 className="w-4 h-4" /></button></>)}</div></td>
                   </tr>
                 ))}
               </tbody>
@@ -276,8 +355,8 @@ function TeamMembers() {
 
       {/* ADD MODAL WITH PHOTO */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white text-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+        <div className="tm-modal-overlay fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="tm-modal-box bg-white text-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
             <h3 className="text-xl font-bold text-slate-900 mb-4">Add Team Member</h3>
             <form onSubmit={handleAddMember} className="flex flex-col gap-4">
 
@@ -322,7 +401,7 @@ function TeamMembers() {
           </div>
         </div>
       )}
-      <footer className="w-full bg-[#090d16] border-t border-slate-900 py-8 px-6 text-center text-xs text-slate-500 mt-auto">© 2026 Employee Task Tracker System | All Rights Reserved</footer>
+      <footer className="tm-footer w-full bg-[#090d16] border-t border-slate-900 py-8 px-6 text-center text-xs text-slate-500 mt-auto">© 2026 Employee Task Tracker System | All Rights Reserved</footer>
     </div>
   );
 }

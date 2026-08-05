@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     DB_NAME: str
     DB_CHARSET: str = "utf8mb4"
 
+    SMTP_SERVER: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True,

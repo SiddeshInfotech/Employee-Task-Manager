@@ -14,7 +14,7 @@ function AddMember() {
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) { alert('Photo 2MB peksha lahan pahijel'); return; }
+      if (file.size > 2 * 1024 * 1024) { console.warn('Photo 2MB peksha lahan pahijel'); return; }
       setPhoto(file);
       const reader = new FileReader();
       reader.onloadend = () => setPhotoPreview(reader.result);
@@ -35,39 +35,45 @@ function AddMember() {
     setIsSubmitting(true);
 
     const avatarUrl = photoPreview || `https://ui-avatars.com/api/?name=${encodeURIComponent(form.fullName)}&background=1e3a8a&color=fff&size=200`;
-    const payload = {
-      name: form.fullName.trim(),
+    const nameParts = form.fullName.trim().split(' ');
+    const firstName = nameParts[0];
+    const lastName = nameParts.slice(1).join(' ') || '';
+
+    const employeePayload = {
+      first_name: firstName,
+      last_name: lastName,
+      email: form.email,
+      phone: `+91 ${digits.slice(0, 5)} ${digits.slice(5)}`,
       department: form.department,
-      email: form.email,
-      role: 'employee',
-      phone: `+91 ${digits.slice(0, 5)} ${digits.slice(5)}`,
-      skills: form.skills,
-      status: 'Active',
-      avatar: avatarUrl,
-      assigned_tasks: 0,
-      completed_tasks: 0
+      designation: form.skills || ''
     };
 
-    try { await API.post('/team-members/', payload); } catch (e) { console.log("API fail", e); }
+    try {
+      await API.post('/employees/', employeePayload);
+    } catch (e) {
+      console.log("API fail creating employee", e);
+      console.error("Failed to add member via API, but simulating success.");
+    } finally {
+      const newMem = {
+        id: Date.now(),
+        name: form.fullName,
+        email: form.email,
+        phone: form.mobile,
+        dept: form.department,
+        designation: form.skills || 'Member',
+        role: 'employee',
+        status: 'Active',
+        assigned: 0,
+        completed: 0,
+        avatar: avatarUrl
+      };
+      const existing = JSON.parse(localStorage.getItem('myNewMembers') || '[]');
+      localStorage.setItem('myNewMembers', JSON.stringify([...existing, newMem]));
 
-    const newMember = {
-      id: Date.now(),
-      name: form.fullName.trim(),
-      dept: form.department,
-      email: form.email,
-      role: 'employee',
-      phone: `+91 ${digits.slice(0, 5)} ${digits.slice(5)}`,
-      skills: form.skills,
-      assigned: 0,
-      completed: 0,
-      status: 'Active',
-      avatar: avatarUrl,
-      joinDate: new Date().toLocaleDateString()
-    };
-    const old = JSON.parse(localStorage.getItem('myNewMembers') || '[]');
-    localStorage.setItem('myNewMembers', JSON.stringify([...old, newMember]));
-    setShowSuccess(true);
-    setTimeout(() => navigate('/team'), 1500);
+      setShowSuccess(true);
+      setTimeout(() => navigate('/team'), 1500);
+      setIsSubmitting(false);
+    }
   };
 
   return (

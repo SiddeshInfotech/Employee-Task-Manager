@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, Trash2, Eye } from 'lucide-react';
+import { Search, Plus, Trash2, Eye, Pencil } from 'lucide-react';
 import Navbar from './Navbar';
 import api, { showToast } from './axios';
 import { useTranslation } from 'react-i18next';
@@ -70,14 +70,27 @@ function MyTask() {
 
   const isTaskForCurrentUser = (t) => {
     if (role === 'admin') return true;
+    
     const empIdStr = t.employee_id !== undefined && t.employee_id !== null ? String(t.employee_id) : '';
-    const assignedToStr = (t.assigned_to || t.assignee || t.employee_name || t.username || t.createdBy || '').toLowerCase();
-    const taskUsername = (t.username || '').toLowerCase();
-    return (
-      (userId && empIdStr !== '' && empIdStr === String(userId)) ||
-      (username && assignedToStr.length > 0 && (assignedToStr.includes(username) || username.includes(assignedToStr))) ||
-      (username && taskUsername.length > 0 && taskUsername === username)
-    );
+    const currentEmpId = localStorage.getItem('employee_id');
+    const currentUserId = localStorage.getItem('userId') || localStorage.getItem('user_id');
+
+    if (currentEmpId && empIdStr !== '') {
+      if (empIdStr === String(currentEmpId)) return true;
+    }
+
+    if (currentUserId) {
+      if (empIdStr !== '' && empIdStr === String(currentUserId)) return true;
+      const tUserId = t.user_id !== undefined && t.user_id !== null ? String(t.user_id) : '';
+      if (tUserId !== '' && tUserId === String(currentUserId)) return true;
+    }
+    
+    const assignedToStr = (t.assigned_to || t.assignee || t.employee_name || '').toLowerCase();
+    if (username && assignedToStr.length > 0) {
+      return assignedToStr.includes(username) || username.includes(assignedToStr);
+    }
+    
+    return false;
   };
 
   const fetchTasks = async () => {
@@ -92,10 +105,14 @@ function MyTask() {
           taskData = taskData.filter(isTaskForCurrentUser);
         }
 
-        // Merge local tasks (avoid duplicates by id)
+        // Merge local tasks (avoid duplicates by id and title)
         const apiIds = new Set(taskData.map(t => String(t.task_id || t.id)));
+        const apiTitles = new Set(taskData.map(t => String(t.task_title || t.title || t.task || t.name || '').toLowerCase().trim()));
+        
         const filteredLocal = localTasks.filter(lt => {
-          if (apiIds.has(String(lt.id || lt.task_id))) return false;
+          const hasId = apiIds.has(String(lt.id || lt.task_id));
+          const hasTitle = apiTitles.has(String(lt.task_title || lt.title || lt.task || lt.name || '').toLowerCase().trim());
+          if (hasId || hasTitle) return false;
           return isTaskForCurrentUser(lt);
         });
 
@@ -120,10 +137,25 @@ function MyTask() {
       return;
     }
 
-    // Always remove from localStorage first
-    const localTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
-    const updatedLocal = localTasks.filter(lt => String(lt.id || lt.task_id) !== String(id));
-    localStorage.setItem('myNewTasks', JSON.stringify(updatedLocal));
+    // Find task title so we can remove by title too (handles mismatched IDs)
+    const deletedTask = tasks.find(t => String(t.id) === String(id));
+    const deletedTitle = (deletedTask?.task || '').toLowerCase().trim();
+
+    // Remove from all localStorage keys by both ID and title
+    const removeFromCache = (key) => {
+      const cached = JSON.parse(localStorage.getItem(key) || '[]');
+      const updated = cached.filter(lt => {
+        const ltId = String(lt.id || lt.task_id);
+        const ltTitle = String(lt.task_title || lt.title || lt.task || lt.name || '').toLowerCase().trim();
+        if (ltId === String(id)) return false;
+        if (deletedTitle && ltTitle === deletedTitle) return false;
+        return true;
+      });
+      localStorage.setItem(key, JSON.stringify(updated));
+    };
+    removeFromCache('myNewTasks');
+    removeFromCache('myTasks');
+    removeFromCache('tasks');
 
     // Attempt API delete silently (don't block on failure)
     try {
@@ -320,13 +352,22 @@ function MyTask() {
                           </button>
 
                           {role === 'admin' && (
-                            <button
-                              onClick={() => handleDeleteTask(task.id)}
-                              className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition-all"
-                              title={t("deleteTask")}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            <>
+                              <button
+                                onClick={() => navigate(`/tasks/${task.id}`, { state: { edit: true } })}
+                                className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg transition-all"
+                                title="Edit Task"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteTask(task.id)}
+                                className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition-all"
+                                title={t("deleteTask")}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>

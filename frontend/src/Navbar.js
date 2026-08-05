@@ -110,6 +110,8 @@ function Navbar() {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
     localStorage.removeItem('username');
+    localStorage.removeItem('employee_id');
+    localStorage.removeItem('user_id');
     showToast('Logged out successfully.');
     navigate('/login');
   };
@@ -158,7 +160,6 @@ function Navbar() {
   if (!token) return null;
 
   const menuItems = [
-    { name: 'Home', key: 'home', path: '/', icon: Home },
     { name: 'Dashboard', key: 'dashboard', path: '/dashboard', icon: LayoutDashboard },
     ...(isAdmin ? [{ name: 'Team Members', key: 'team', path: '/team', icon: Users }] : []),
     { name: 'My Task', key: 'myTask', path: '/my-task', icon: CheckSquare },
@@ -196,11 +197,10 @@ function Navbar() {
               <Link
                 key={t(item.key)}
                 to={item.path}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-300 ${
-                  isActive 
-                    ? 'bg-[rgba(255,255,255,0.1)] text-white shadow-sm' 
-                    : 'text-slate-400 hover:text-white hover:bg-[rgba(255,255,255,0.05)]'
-                }`}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-300 ${isActive
+                  ? 'bg-[rgba(255,255,255,0.1)] text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white hover:bg-[rgba(255,255,255,0.05)]'
+                  }`}
               >
                 <Icon className={`w-4 h-4 ${isActive ? 'text-blue-400' : 'text-slate-500'}`} />
                 {t(item.key)}
@@ -313,11 +313,10 @@ function Navbar() {
                 key={t(item.key)}
                 to={item.path}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`flex items-center gap-3 py-3 px-4 rounded-xl transition-all duration-300 text-sm font-bold ${
-                  isActive 
-                    ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/25' 
-                    : 'text-slate-300 hover:bg-[rgba(255,255,255,0.05)] hover:text-white'
-                }`}
+                className={`flex items-center gap-3 py-3 px-4 rounded-xl transition-all duration-300 text-sm font-bold ${isActive
+                  ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/25'
+                  : 'text-slate-300 hover:bg-[rgba(255,255,255,0.05)] hover:text-white'
+                  }`}
               >
                 <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
                 {t(item.key)}
@@ -331,4 +330,3 @@ function Navbar() {
 }
 
 export default Navbar;
-

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Mail, Lock, LogIn, ArrowRight, UserPlus, CheckCircle, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, LogIn, ArrowRight, UserPlus, CheckCircle, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import api, { showToast } from './axios';
 
 function Login() {
@@ -33,17 +33,25 @@ function Login() {
         localStorage.setItem('username', username);
 
         let userRole = res.data?.role;
-        if (!userRole) {
-          try {
-            const payload = JSON.parse(atob(res.data.access_token.split('.')[1]));
-            userRole = payload.role;
-          } catch (err) {
-            console.error("Failed to decode JWT payload:", err);
-          }
+        let empId = null;
+        let uid = null;
+        try {
+          const payload = JSON.parse(atob(res.data.access_token.split('.')[1]));
+          if (!userRole) userRole = payload.role;
+          empId = payload.employee_id;
+          uid = payload.id;
+        } catch (err) {
+          console.error("Failed to decode JWT payload:", err);
         }
         const finalRole = (userRole || 'employee').toLowerCase();
         localStorage.setItem('role', finalRole);
-        console.log("Role stored successfully in localStorage:", localStorage.getItem('role'));
+        if (empId !== null && empId !== undefined) {
+          localStorage.setItem('employee_id', String(empId));
+        }
+        if (uid !== null && uid !== undefined) {
+          localStorage.setItem('user_id', String(uid));
+        }
+        console.log("Login stored - role:", finalRole, "employee_id:", empId, "user_id:", uid);
         showToast('Login successful!', 'success');
         navigate('/dashboard');
       } else {
@@ -77,10 +85,11 @@ function Login() {
     try {
       console.log("[Register] Attempting registration for:", username, email, employeeId, role);
       const formattedRole = role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
+      const parsedEmployeeId = (role.toLowerCase() === 'admin' && !employeeId) ? null : (employeeId ? Number(employeeId) : null);
       await api.post('/auth/register', {
         username,
         email,
-        employee_id: Number(employeeId),
+        employee_id: parsedEmployeeId,
         password,
         role: formattedRole
       });
@@ -101,17 +110,25 @@ function Login() {
         localStorage.setItem('username', username);
 
         let userRole = res.data?.role;
-        if (!userRole) {
-          try {
-            const payload = JSON.parse(atob(res.data.access_token.split('.')[1]));
-            userRole = payload.role;
-          } catch (err) {
-            console.error("Failed to decode JWT payload:", err);
-          }
+        let empId = null;
+        let uid = null;
+        try {
+          const payload = JSON.parse(atob(res.data.access_token.split('.')[1]));
+          if (!userRole) userRole = payload.role;
+          empId = payload.employee_id;
+          uid = payload.id;
+        } catch (err) {
+          console.error("Failed to decode JWT payload:", err);
         }
         const finalRole = (userRole || role || 'employee').toLowerCase();
         localStorage.setItem('role', finalRole);
-        console.log("Role stored successfully in localStorage after register:", localStorage.getItem('role'));
+        if (empId !== null && empId !== undefined) {
+          localStorage.setItem('employee_id', String(empId));
+        }
+        if (uid !== null && uid !== undefined) {
+          localStorage.setItem('user_id', String(uid));
+        }
+        console.log("Register stored - role:", finalRole, "employee_id:", empId, "user_id:", uid);
       } else {
         localStorage.setItem('role', role.toLowerCase());
       }
@@ -133,7 +150,13 @@ function Login() {
       } else if (err.message) {
         errorMsg = err.message;
       }
-      showToast(errorMsg, 'error');
+      
+      if (errorMsg.toLowerCase().includes('already registered') || errorMsg.toLowerCase().includes('already exists')) {
+        showToast('Account already exists! Please log in.', 'info');
+        setIsLogin(true);
+      } else {
+        showToast(errorMsg, 'error');
+      }
     } finally {
       setLoading(false);
     }
@@ -151,8 +174,8 @@ function Login() {
             <ShieldCheck className="w-5 h-5 text-white" />
           </div>
           <div>
-             <h1 className="text-lg font-bold text-white tracking-tight leading-tight group-hover:text-blue-400 transition-colors">Nexus</h1>
-             <p className="text-[10px] text-blue-400 font-bold uppercase tracking-widest leading-none">Workspace</p>
+            <h1 className="text-lg font-bold text-white tracking-tight leading-tight group-hover:text-blue-400 transition-colors">Nexus</h1>
+            <p className="text-[10px] text-blue-400 font-bold uppercase tracking-widest leading-none">Workspace</p>
           </div>
         </Link>
         <button onClick={() => setIsLogin(!isLogin)} className="btn-ghost text-sm font-medium">
@@ -161,7 +184,7 @@ function Login() {
       </header>
 
       <main className="flex-1 flex lg:flex-row w-full max-w-7xl mx-auto items-center justify-center p-6 gap-12 relative z-10">
-        
+
         {/* Left Hero Section (Hidden on Mobile) */}
         <div className="hidden lg:flex w-1/2 flex-col justify-center fade-up" style={{ animationDelay: '0.1s' }}>
           <h2 className="text-5xl font-extrabold text-white mb-6 leading-tight tracking-tight">
@@ -171,7 +194,7 @@ function Login() {
           <p className="text-slate-400 mb-10 text-lg max-w-md leading-relaxed">
             Login to your premium account and continue managing your tasks, team, and deadlines seamlessly.
           </p>
-          
+
           <div className="space-y-6">
             <div className="flex items-center gap-5 bg-[rgba(255,255,255,0.02)] p-4 rounded-2xl border border-[rgba(255,255,255,0.05)] w-max pr-12 hover:bg-[rgba(255,255,255,0.05)] transition-all">
               <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center border border-blue-500/20">
@@ -182,7 +205,7 @@ function Login() {
                 <p className="text-sm text-slate-400">Create, track, and master tasks</p>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-5 bg-[rgba(255,255,255,0.02)] p-4 rounded-2xl border border-[rgba(255,255,255,0.05)] w-max pr-12 hover:bg-[rgba(255,255,255,0.05)] transition-all">
               <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/20">
                 <CheckCircle className="w-6 h-6 text-emerald-400" />
@@ -217,7 +240,7 @@ function Login() {
                   </label>
                   <input
                     type="number"
-                    required
+                    required={role.toLowerCase() === 'employee'}
                     value={employeeId}
                     onChange={(e) => setEmployeeId(e.target.value)}
                     placeholder="e.g. 1001"
@@ -229,11 +252,11 @@ function Login() {
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
                   Username
                 </label>
-                <input 
-                  type="text" 
-                  required 
-                  value={username} 
-                  onChange={(e) => setUsername(e.target.value)} 
+                <input
+                  type="text"
+                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   placeholder="Enter Username"
                   className="w-full px-5 py-3.5 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.1)] rounded-xl text-sm text-white focus:outline-none focus:border-blue-500 transition-all placeholder:text-slate-600 shadow-inner" />
               </div>
@@ -243,33 +266,34 @@ function Login() {
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Email Address</label>
                   <div className="relative">
                     <Mail className="absolute left-4 top-3.5 w-5 h-5 text-slate-500" />
-                    <input 
-                      type="email" 
-                      required 
-                      value={email} 
-                      onChange={e => setEmail(e.target.value)} 
-                      placeholder="Enter email" 
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      placeholder="Enter email"
                       className="w-full pl-12 pr-5 py-3.5 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.1)] rounded-xl text-sm text-white focus:outline-none focus:border-blue-500 transition-all placeholder:text-slate-600 shadow-inner" />
                   </div>
                 </div>
               )}
-              
+
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Password</label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-3.5 w-5 h-5 text-slate-500" />
-                  <input 
-                    type={showPassword ? 'text' : 'password'} 
-                    required 
-                    value={password} 
-                    onChange={e => setPassword(e.target.value)} 
-                    placeholder="Enter password" 
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="Enter password"
                     className="w-full pl-12 pr-16 py-3.5 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.1)] rounded-xl text-sm text-white focus:outline-none focus:border-blue-500 transition-all placeholder:text-slate-600 shadow-inner" />
-                  <button 
-                    type="button" 
-                    onClick={() => setShowPassword(!showPassword)} 
-                    className="absolute right-4 top-3.5 text-xs font-bold text-slate-400 hover:text-white transition-colors uppercase tracking-wider">
-                      {showPassword ? 'Hide' : 'Show'}
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-3.5 text-slate-400 hover:text-white transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
               </div>
@@ -277,9 +301,9 @@ function Login() {
               {!isLogin && (
                 <div>
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Role</label>
-                  <select 
-                    value={role} 
-                    onChange={e => setRole(e.target.value)} 
+                  <select
+                    value={role}
+                    onChange={e => setRole(e.target.value)}
                     className="w-full px-5 py-3.5 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.1)] rounded-xl text-sm text-white font-medium focus:outline-none focus:border-blue-500 transition-all appearance-none shadow-inner"
                   >
                     <option value="employee" className="bg-slate-900 text-white">Employee</option>
@@ -297,9 +321,9 @@ function Login() {
                 </div>
               )}
 
-              <button 
-                type="submit" 
-                disabled={loading} 
+              <button
+                type="submit"
+                disabled={loading}
                 className="w-full py-4 btn-primary mt-4 flex items-center justify-center gap-2 text-sm uppercase tracking-widest shadow-xl shadow-blue-600/20"
               >
                 {loading ? 'Please wait...' : isLogin ? 'Sign In' : 'Sign Up'} <ArrowRight className="w-4 h-4" />
@@ -307,8 +331,8 @@ function Login() {
             </form>
 
             <div className="mt-8 text-center relative z-10 border-t border-[rgba(255,255,255,0.05)] pt-6">
-              <button 
-                onClick={() => setIsLogin(!isLogin)} 
+              <button
+                onClick={() => setIsLogin(!isLogin)}
                 className="text-sm px-6 py-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-xl shadow-sm hover:bg-[rgba(255,255,255,0.06)] transition-all group w-full"
               >
                 {isLogin ? (

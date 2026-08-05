@@ -63,4 +63,4 @@ def delete_all_notifications(
     current_user: models.User = Depends(auth.get_current_active_user)
 ):
     crud.delete_all_notifications(db, current_user.employee_id, current_user.role)
-    return {"message": "All notifications deleted"}
+    return {"message": "All notifications deleted"}

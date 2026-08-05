@@ -6,19 +6,22 @@ import api, { showToast } from './axios';
 import i18n from './translations/i18n';
 import { useTranslation } from 'react-i18next';
 
+export const applyGlobalTheme = (themeName) => {
+  const root = document.documentElement;
+  root.classList.remove("theme-light", "theme-dark", "theme-original", "dark");
+  if (themeName === "Light") {
+    root.classList.add("theme-light");
+  } else if (themeName === "Dark") {
+    root.classList.add("theme-dark", "dark");
+  } else {
+    root.classList.add("theme-original");
+  }
+};
+
 function Settings() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('general');
-
-  const [profileData, setProfileData] = useState({
-    fullName: localStorage.getItem('username') || '',
-    department: localStorage.getItem('department') || '',
-    designation: localStorage.getItem('designation') || '',
-    email: localStorage.getItem('email') || '',
-    phone: localStorage.getItem('phone') || ''
-  });
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [settingsForm, setSettingsForm] = useState({
     language: 'en',
     theme: 'Original',
@@ -59,7 +62,7 @@ function Settings() {
           employee_id: 1,
           message: `Support Request [${supportForm.subject}]: ${supportForm.message}`
         }
-      }).catch(() => {});
+      }).catch(() => { });
       showToast('Support ticket submitted successfully! Our team will contact you shortly.', 'success');
       setShowSupportModal(false);
       setSupportForm({ subject: 'Technical Issue', message: '' });
@@ -99,7 +102,7 @@ function Settings() {
       await api.put('/auth/change-password', {
         old_password: passwordForm.currentPassword,
         new_password: passwordForm.newPassword
-      }).catch(() => {});
+      }).catch(() => { });
 
       showToast('Password changed successfully!', 'success');
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
@@ -130,6 +133,9 @@ function Settings() {
       const settings = JSON.parse(savedSettings);
       setSettingsForm(settings);
       i18n.changeLanguage(settings.language);
+      applyGlobalTheme(settings.theme || "Original");
+    } else {
+      applyGlobalTheme("Original");
     }
     const savedNotifs = localStorage.getItem("notificationSettings");
     if (savedNotifs) {
@@ -144,13 +150,11 @@ function Settings() {
   const handleSaveNotifications = (e) => {
     e.preventDefault();
     localStorage.setItem("notificationSettings", JSON.stringify(notificationForm));
-    showToast("Notification settings saved successfully!", "success");
   };
 
   const handleSavePrivacy = (e) => {
     e.preventDefault();
     localStorage.setItem("privacySettings", JSON.stringify(privacyForm));
-    showToast("Privacy settings saved successfully!", "success");
   };
 
   const handleSave = (e) => {
@@ -161,29 +165,9 @@ function Settings() {
       JSON.stringify(settingsForm)
     );
 
-    // Theme apply
-    document.documentElement.classList.remove("dark", "light", "original");
-    if (settingsForm.theme === "Dark" || settingsForm.theme === "Glass") {
-      document.documentElement.classList.add("dark");
-    } else if (settingsForm.theme === "Original") {
-      document.documentElement.classList.add("original");
-    } else {
-      document.documentElement.classList.add("light");
-    }
+    applyGlobalTheme(settingsForm.theme);
 
     i18n.changeLanguage(settingsForm.language);
-
-    showToast("Settings saved successfully!");
-  };
-
-  const handleSaveProfile = (e) => {
-    e.preventDefault();
-    localStorage.setItem('department', profileData.department);
-    localStorage.setItem('designation', profileData.designation);
-    localStorage.setItem('email', profileData.email);
-    localStorage.setItem('phone', profileData.phone);
-    setIsEditingProfile(false);
-    showToast('Profile updated successfully!', 'success');
   };
 
   const tabs = [
@@ -209,13 +193,16 @@ function Settings() {
                 <button
                   key={tab.id}
                   onClick={() => {
+                    if (tab.id === 'profile') {
+                      navigate('/profile');
+                      return;
+                    }
                     setActiveTab(tab.id);
                   }}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all text-left ${
-                    activeTab === tab.id
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
-                      : 'hover:bg-white/5 text-slate-300 hover:text-white'
-                  }`}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all text-left ${activeTab === tab.id
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
+                    : 'hover:bg-white/5 text-slate-300 hover:text-white'
+                    }`}
                 >
                   <Icon className="w-4.5 h-4.5" />
                   {tab.label}
@@ -315,10 +302,9 @@ function Settings() {
                   }
                   className="w-full sm:w-64 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:border-blue-500"
                 >
-                  <option value="Original">Original</option>
                   <option value="Light">Light</option>
                   <option value="Dark">Dark</option>
-                  <option value="Glass">Glassmorphism</option>
+                  <option value="Original">Original</option>
                 </select>
               </div>
 
@@ -403,23 +389,12 @@ function Settings() {
                   <input
                     type="checkbox"
                     checked={settingsForm.autoSave}
-                    onChange={(e) => {
-
-                      const updated = {
+                    onChange={(e) =>
+                      setSettingsForm({
                         ...settingsForm,
                         autoSave: e.target.checked
-                      };
-
-                      setSettingsForm(updated);
-
-                      if (updated.autoSave) {
-                        localStorage.setItem(
-                          "appSettings",
-                          JSON.stringify(updated)
-                        );
-                      }
-
-                    }}
+                      })
+                    }
                     className="sr-only peer"
                   />
                   <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
@@ -434,139 +409,6 @@ function Settings() {
                 >
                   {t("saveChanges")}
                 </button>
-              </div>
-            </form>
-          ) : activeTab === 'profile' ? (
-            <form onSubmit={handleSaveProfile} className="flex flex-col gap-6">
-              <div className="border-b border-slate-100 pb-4">
-                <h3 className="text-lg font-bold text-slate-900">Profile Settings</h3>
-                <p className="text-xs text-slate-500 mt-1">View and update your personal profile information.</p>
-              </div>
-
-              {/* Avatar */}
-              <div className="flex items-center gap-5 py-2">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
-                  {(profileData.fullName || 'U')[0].toUpperCase()}
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-slate-800">{profileData.fullName}</p>
-                  <p className="text-xs text-slate-400">{profileData.designation || 'Employee'}</p>
-                  <span className="inline-block mt-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full uppercase">{localStorage.getItem('role') || 'employee'}</span>
-                </div>
-              </div>
-
-              {/* Full Name */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-2">
-                <div>
-                  <h4 className="text-sm font-bold text-slate-800">Full Name</h4>
-                  <p className="text-xs text-slate-400 mt-0.5">Your display name across the platform</p>
-                </div>
-                <input
-                  type="text"
-                  disabled
-                  value={profileData.fullName}
-                  className="w-full sm:w-64 px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 text-sm cursor-not-allowed"
-                />
-              </div>
-
-              {/* Department */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-2">
-                <div>
-                  <h4 className="text-sm font-bold text-slate-800">Department</h4>
-                  <p className="text-xs text-slate-400 mt-0.5">Your team or division</p>
-                </div>
-                <input
-                  type="text"
-                  disabled={!isEditingProfile}
-                  value={profileData.department}
-                  onChange={(e) => setProfileData({ ...profileData, department: e.target.value })}
-                  placeholder="e.g. IT, Marketing"
-                  className={`w-full sm:w-64 px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:border-blue-500 ${
-                    isEditingProfile ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed'
-                  }`}
-                />
-              </div>
-
-              {/* Designation */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-2">
-                <div>
-                  <h4 className="text-sm font-bold text-slate-800">Designation</h4>
-                  <p className="text-xs text-slate-400 mt-0.5">Your job title or role</p>
-                </div>
-                <input
-                  type="text"
-                  disabled={!isEditingProfile}
-                  value={profileData.designation}
-                  onChange={(e) => setProfileData({ ...profileData, designation: e.target.value })}
-                  placeholder="e.g. Software Engineer"
-                  className={`w-full sm:w-64 px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:border-blue-500 ${
-                    isEditingProfile ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed'
-                  }`}
-                />
-              </div>
-
-              {/* Email */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-2">
-                <div>
-                  <h4 className="text-sm font-bold text-slate-800">Email Address</h4>
-                  <p className="text-xs text-slate-400 mt-0.5">Your contact email</p>
-                </div>
-                <input
-                  type="email"
-                  disabled={!isEditingProfile}
-                  value={profileData.email}
-                  onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
-                  placeholder="e.g. user@gmail.com"
-                  className={`w-full sm:w-64 px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:border-blue-500 ${
-                    isEditingProfile ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed'
-                  }`}
-                />
-              </div>
-
-              {/* Phone */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-2">
-                <div>
-                  <h4 className="text-sm font-bold text-slate-800">Phone Number</h4>
-                  <p className="text-xs text-slate-400 mt-0.5">Your contact number</p>
-                </div>
-                <input
-                  type="text"
-                  disabled={!isEditingProfile}
-                  value={profileData.phone}
-                  onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
-                  placeholder="e.g. +91 98765 43210"
-                  className={`w-full sm:w-64 px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:border-blue-500 ${
-                    isEditingProfile ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed'
-                  }`}
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 mt-4">
-                {isEditingProfile ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingProfile(false)}
-                      className="px-6 py-3 border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold rounded-xl text-sm transition-all"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/20 transition-all"
-                    >
-                      Save Profile
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setIsEditingProfile(true)}
-                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/20 transition-all"
-                  >
-                    Edit Profile
-                  </button>
-                )}
               </div>
             </form>
           ) : activeTab === 'password' ? (

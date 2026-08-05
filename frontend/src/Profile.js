@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Award, LogOut, Lock, Edit2, Camera, Building, Mail, Phone } from 'lucide-react';
+import { ArrowLeft, Award, LogOut, Lock, Edit2, Camera, Building, Mail, Phone } from 'lucide-react';
 import Navbar from './Navbar';
 import api, { showToast } from './axios';
 
@@ -41,12 +41,12 @@ function Profile() {
   };
 
   const [profileForm, setProfileForm] = useState({
-    fullName: member?.name || loggedInUsername || 'John Doe',
-    email: member?.email || `${(member?.name || loggedInUsername).toLowerCase().replace(/\s+/g, '')}@gmail.com`,
+    fullName: member?.name || member?.username || loggedInUsername || '',
+    email: member?.email !== undefined ? member.email : (loggedInUsername ? `${loggedInUsername.toLowerCase().replace(/\s+/g, '')}@gmail.com` : ''),
     role: profileRole,
-    department: member?.dept || 'IT',
-    designation: member?.designation || 'Software Engineer',
-    phone: member?.phone || '+91 98765 43210',
+    department: member?.dept || member?.department || 'Development',
+    designation: member?.designation || '',
+    phone: member?.phone || '',
     bio: ''
   });
 
@@ -57,34 +57,57 @@ function Profile() {
     null
   );
 
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(location.state?.edit || false);
   const [loading, setLoading] = useState(false);
   const [savedProfileSnapshot, setSavedProfileSnapshot] = useState(null);
 
   useEffect(() => {
     if (isViewingOtherProfile) {
       // Viewing an employee's profile (admin clicked View Profile)
-      const initialData = {
-        fullName: member.name || loggedInUsername,
-        email: member.email || `${(member.name || '').toLowerCase().replace(/\s+/g, '')}@gmail.com`,
-        role: member.role || 'employee',
-        department: member.dept || 'IT',
-        designation: member.designation || 'Software Engineer',
-        phone: member.phone || '+91 98765 43210',
-        bio: ''
-      };
-      setProfileForm(initialData);
-      setSavedProfileSnapshot(initialData);
+      const fetchEmployeeDetail = async () => {
+        let empDetails = { ...member };
+        const empId = member.employee_id || member.id;
+        if (empId) {
+          try {
+            const res = await api.get(`/employees/${empId}`);
+            if (res.data) {
+              empDetails = {
+                ...empDetails,
+                name: res.data.first_name ? `${res.data.first_name} ${res.data.last_name || ''}`.trim() : (res.data.username || empDetails.name),
+                email: res.data.email || empDetails.email,
+                phone: res.data.phone || empDetails.phone,
+                dept: res.data.department || empDetails.dept,
+                designation: res.data.designation || empDetails.designation,
+              };
+            }
+          } catch (e) {
+            console.log('Could not fetch employee details by ID:', e?.message);
+          }
+        }
 
-      // Load that employee's saved photo from their own key
-      const savedAvatar = localStorage.getItem(avatarKey);
-      if (member.avatar) {
-        setAvatar(member.avatar);
-      } else if (savedAvatar) {
-        setAvatar(savedAvatar);
-      } else {
-        setAvatar(null); // show initials
-      }
+        const initialData = {
+          fullName: empDetails.name || empDetails.username || loggedInUsername,
+          email: empDetails.email || '',
+          role: empDetails.role || 'employee',
+          department: empDetails.dept || empDetails.department || 'Development',
+          designation: empDetails.designation || '',
+          phone: empDetails.phone || '',
+          bio: ''
+        };
+        setProfileForm(initialData);
+        setSavedProfileSnapshot(initialData);
+
+        const savedAvatar = localStorage.getItem(avatarKey);
+        if (empDetails.avatar) {
+          setAvatar(empDetails.avatar);
+        } else if (savedAvatar) {
+          setAvatar(savedAvatar);
+        } else {
+          setAvatar(null);
+        }
+      };
+
+      fetchEmployeeDetail();
       return;
     }
 
@@ -136,24 +159,60 @@ function Profile() {
     if (e) e.preventDefault();
     setLoading(true);
     try {
-      await api.put('/users/me', {
-        username: profileForm.fullName,
-        email: profileForm.email,
-        department: profileForm.department
-      }).catch(() => {});
+      if (isViewingOtherProfile) {
+        const oldLocal = JSON.parse(localStorage.getItem('myNewMembers') || '[]');
+        const targetId = member.id || member.employee_id;
+        
+        let found = false;
+        const updatedLocal = oldLocal.map(m => {
+          if (m.id === targetId || (m.email && m.email === member.email)) {
+            found = true;
+            return {
+              ...m,
+              name: profileForm.fullName,
+              email: profileForm.email,
+              dept: profileForm.department,
+              designation: profileForm.designation,
+              phone: profileForm.phone
+            };
+          }
+          return m;
+        });
+        
+        if (!found) {
+          updatedLocal.push({
+            id: targetId || Date.now(),
+            name: profileForm.fullName,
+            email: profileForm.email,
+            dept: profileForm.department,
+            designation: profileForm.designation,
+            phone: profileForm.phone,
+            status: member.status || 'Active',
+            role: member.role || 'employee'
+          });
+        }
+        
+        localStorage.setItem('myNewMembers', JSON.stringify(updatedLocal));
+        showToast('Profile updated successfully.');
+        navigate('/team');
+      } else {
+        await api.put('/users/me', {
+          username: profileForm.fullName,
+          email: profileForm.email,
+          department: profileForm.department
+        }).catch(() => { });
 
-      // Save profile to localStorage
-      localStorage.setItem('userProfile', JSON.stringify(profileForm));
-      if (!isViewingOtherProfile && profileForm.fullName) {
-        localStorage.setItem('username', profileForm.fullName);
+        // Save profile to localStorage
+        localStorage.setItem('userProfile', JSON.stringify(profileForm));
+        if (profileForm.fullName) {
+          localStorage.setItem('username', profileForm.fullName);
+        }
       }
 
       setSavedProfileSnapshot({ ...profileForm });
-      showToast('Profile updated successfully');
       setEditing(false);
     } catch (err) {
       console.error(err);
-      showToast('Profile updated successfully');
       setEditing(false);
     } finally {
       setLoading(false);
@@ -164,6 +223,8 @@ function Profile() {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
     localStorage.removeItem('username');
+    localStorage.removeItem('employee_id');
+    localStorage.removeItem('user_id');
     showToast('Logged out successfully.');
     navigate('/login');
   };
@@ -199,10 +260,20 @@ function Profile() {
       <Navbar />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12 flex items-center justify-center">
+      <main className="flex-1 max-w-2xl mx-auto w-full px-6 py-10 flex flex-col items-start gap-4">
+        {/* Back Button positioned outside/above the white profile card */}
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="px-4 py-2 rounded-xl bg-slate-900/60 hover:bg-slate-900 border border-slate-800 text-slate-200 hover:text-white transition-all flex items-center gap-2 text-xs font-bold shadow-md backdrop-blur-md"
+          title="Go back to previous page"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back</span>
+        </button>
 
         {/* Profile Card */}
-        <div className="w-full max-w-2xl bg-white text-slate-800 rounded-3xl shadow-2xl border border-white/20 p-8 flex flex-col md:flex-row items-center gap-10">
+        <div className="w-full bg-white text-slate-800 rounded-3xl shadow-2xl border border-white/20 p-8 flex flex-col md:flex-row items-center gap-10">
 
           {/* Avatar / Left side */}
           <div className="flex flex-col items-center gap-4 relative">

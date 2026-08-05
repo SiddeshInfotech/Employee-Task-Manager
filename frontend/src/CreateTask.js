@@ -10,7 +10,9 @@ function CreateTask() {
     title: '',
     description: '',
     due_date: '',
-    assigned_to_id: ''
+    assigned_to_id: '',
+    priority_id: 1,
+    status_id: 1
   });
   const [users, setUsers] = useState([]);
   const role = localStorage.getItem('role') || 'employee';
@@ -18,26 +20,37 @@ function CreateTask() {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const res = await api.get('/users/');
-        let userList = res.data || [];
+        const res = await api.get('/employees/');
+        let employeeList = (res.data || []).map(emp => ({
+          id: emp.employee_id,
+          employee_id: emp.employee_id,
+          username: `${emp.first_name} ${emp.last_name}`.trim() || `Employee #${emp.employee_id}`,
+          email: emp.email || ''
+        }));
 
         const localMembers = JSON.parse(localStorage.getItem('myNewMembers') || '[]');
         const localUsers = JSON.parse(localStorage.getItem('myNewUsers') || '[]');
 
-        const combined = [...userList];
+        const combined = [...employeeList];
         [...localMembers, ...localUsers].forEach(lm => {
-          if (lm && lm.id && !combined.some(u => String(u.id) === String(lm.id))) {
-            combined.push({
-              id: lm.id,
-              username: lm.name || lm.username || `Employee #${lm.id}`,
-              email: lm.email || ''
-            });
+          if (lm) {
+            const empId = lm.employee_id || (lm.id && Number(lm.id) <= 2147483647 ? lm.id : null);
+            const matchedDbEmp = employeeList.find(e => e.email && lm.email && e.email.toLowerCase() === lm.email.toLowerCase());
+            const finalId = empId || (matchedDbEmp ? matchedDbEmp.employee_id : (lm.id && Number(lm.id) <= 2147483647 ? lm.id : null));
+            if (finalId && !combined.some(u => String(u.id) === String(finalId))) {
+              combined.push({
+                id: finalId,
+                employee_id: finalId,
+                username: lm.name || lm.username || `Employee #${finalId}`,
+                email: lm.email || ''
+              });
+            }
           }
         });
 
         setUsers(combined);
       } catch (err) {
-        console.error('Failed to load users for task assignment', err);
+        console.error('Failed to load employees for task assignment', err);
         const localMembers = JSON.parse(localStorage.getItem('myNewMembers') || '[]');
         const localUsers = JSON.parse(localStorage.getItem('myNewUsers') || '[]');
         setUsers([...localMembers, ...localUsers]);
@@ -51,10 +64,21 @@ function CreateTask() {
     e.preventDefault();
 
     const formattedDueDate = taskForm.due_date ? taskForm.due_date.split('T')[0] : null;
-    const currentUserId = localStorage.getItem('userId') || localStorage.getItem('user_id') || localStorage.getItem('employee_id') || '1';
-    const assignedEmpId = taskForm.assigned_to_id ? Number(taskForm.assigned_to_id) : Number(currentUserId);
+    const currentEmployeeId = localStorage.getItem('employee_id') || null;
+    let assignedEmpId = taskForm.assigned_to_id ? Number(taskForm.assigned_to_id) : (currentEmployeeId ? Number(currentEmployeeId) : null);
 
-    const assignedUserObj = users.find(u => String(u.id) === String(assignedEmpId));
+    const assignedUserObj = users.find(u => String(u.id) === String(taskForm.assigned_to_id) || String(u.employee_id) === String(taskForm.assigned_to_id));
+    if (assignedUserObj) {
+      if (assignedUserObj.employee_id) {
+        assignedEmpId = Number(assignedUserObj.employee_id);
+      } else if (assignedUserObj.id && Number(assignedUserObj.id) <= 2147483647) {
+        assignedEmpId = Number(assignedUserObj.id);
+      }
+    }
+    if (assignedEmpId && assignedEmpId > 2147483647) {
+      assignedEmpId = currentEmployeeId && Number(currentEmployeeId) <= 2147483647 ? Number(currentEmployeeId) : null;
+    }
+
     const assignedName = assignedUserObj ? (assignedUserObj.username || assignedUserObj.name) : (localStorage.getItem('username') || 'Employee');
 
     const payload = {
@@ -62,8 +86,8 @@ function CreateTask() {
       task_description: taskForm.description,
       employee_id: assignedEmpId,
       assigned_to: assignedName,
-      status_id: 1,      // Pending
-      priority_id: 1,    // High
+      status_id: Number(taskForm.status_id),
+      priority_id: Number(taskForm.priority_id),
       due_date: formattedDueDate
     };
 
@@ -77,33 +101,48 @@ function CreateTask() {
       employee_id: assignedEmpId,
       assigned_to: assignedName,
       assignee: assignedName,
-      status_id: 1,
-      status: 'Pending',
-      priority_id: 1,
-      priority: 'High',
+      status_id: Number(taskForm.status_id),
+      status:
+        taskForm.status_id === 1 || taskForm.status_id === "1"
+          ? "Pending"
+          : taskForm.status_id === 2 || taskForm.status_id === "2"
+            ? "In Progress"
+            : "Completed",
+
+      priority_id: Number(taskForm.priority_id),
+      priority:
+        taskForm.priority_id === 1 || taskForm.priority_id === "1"
+          ? "High"
+          : taskForm.priority_id === 2 || taskForm.priority_id === "2"
+            ? "Medium"
+            : "Low",
       due_date: formattedDueDate || new Date().toISOString().split('T')[0]
     };
-
     try {
-      await api.post('/tasks/', payload);
+      console.log("TASK PAYLOAD:", payload);
+      const res = await api.post('/tasks/', payload);
+      if (res && res.data) {
+        // Use the real task_id from the API response
+        localTaskItem.id = res.data.task_id;
+        localTaskItem.task_id = res.data.task_id;
+      }
     } catch (err) {
-      console.warn("API endpoint unavailable, storing task locally:", err);
+      console.error("Task creation failed via API, saving locally:", err);
     } finally {
-      const existingLocal = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
-      existingLocal.push(localTaskItem);
-      localStorage.setItem('myNewTasks', JSON.stringify(existingLocal));
-
-      showToast('Task created successfully');
+      // Always save locally so the task appears in the UI immediately
+      const existing = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
+      localStorage.setItem('myNewTasks', JSON.stringify([...existing, localTaskItem]));
       navigate('/my-task');
     }
   };
-
   const handleReset = () => {
     setTaskForm({
       title: '',
       description: '',
       due_date: '',
-      assigned_to_id: ''
+      assigned_to_id: '',
+      priority_id: 1,
+      status_id: 1
     });
   };
 
@@ -121,7 +160,7 @@ function CreateTask() {
             onClick={() => navigate('/my-task')}
             className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 hover:text-white rounded-xl text-xs font-bold transition-all shadow"
           >
-            <ArrowLeft className="w-4 h-4" /> Back to My Tasks
+            <ArrowLeft className="w-4 h-4" /> Back to Tasks
           </button>
         </div>
 
@@ -142,7 +181,7 @@ function CreateTask() {
                 placeholder="Enter task title"
                 value={taskForm.title}
                 onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-blue-500"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-500"
               />
             </div>
 
@@ -154,7 +193,7 @@ function CreateTask() {
                 placeholder="Enter task details and specifications"
                 value={taskForm.description}
                 onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-blue-500 h-24"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 h-24"
               />
             </div>
 
@@ -173,7 +212,7 @@ function CreateTask() {
                       due_date: e.target.value
                     })
                   }
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none"
                 />
               </div>
 
@@ -194,6 +233,49 @@ function CreateTask() {
                   ))}
                 </select>
               </div>
+            </div>
+            {/* Status */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">
+                Status
+              </label>
+
+              <select
+                value={taskForm.status_id}
+                onChange={(e) => setTaskForm({
+                  ...taskForm,
+                  status_id: Number(e.target.value)
+                })}
+                className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-black"
+              >
+
+                <option value="1">Pending</option>
+                <option value="2">In Progress</option>
+                <option value="3">Completed</option>
+                <option value="4">On Hold</option>
+
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">
+                Priority
+              </label>
+
+              <select
+                value={taskForm.priority_id}
+                onChange={(e) => setTaskForm({
+                  ...taskForm,
+                  priority_id: Number(e.target.value)
+                })}
+                className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-black"
+              >
+
+                <option value="1">High</option>
+                <option value="2">Medium</option>
+                <option value="3">Low</option>
+
+              </select>
             </div>
 
             {/* Reset / Submit Actions */}

@@ -149,7 +149,7 @@ function NotificationsPage() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12 flex flex-col gap-6">
-        
+
         {/* Header toolbar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#0f172a]/60 border border-slate-800 p-6 rounded-2xl backdrop-blur-md shadow-xl w-full">
           <div>

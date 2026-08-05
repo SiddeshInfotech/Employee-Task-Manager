@@ -21,13 +21,19 @@ function Priority() {
   const isTaskForCurrentUser = (t) => {
     if (role === 'admin') return true;
     const empIdStr = t.employee_id !== undefined && t.employee_id !== null ? String(t.employee_id) : '';
-    const assignedToStr = (t.assigned_to || t.assignee || t.employee_name || t.username || t.createdBy || '').toLowerCase();
-    const taskUsername = (t.username || '').toLowerCase();
-    return (
-      (userId && empIdStr !== '' && empIdStr === String(userId)) ||
-      (username && assignedToStr.length > 0 && (assignedToStr.includes(username) || username.includes(assignedToStr))) ||
-      (username && taskUsername.length > 0 && taskUsername === username)
-    );
+    const currentEmpId = localStorage.getItem('employee_id');
+    const currentUserId = localStorage.getItem('userId') || localStorage.getItem('user_id');
+    if (currentEmpId && empIdStr !== '') {
+      if (empIdStr === String(currentEmpId)) return true;
+    }
+    if (currentUserId) {
+      if (empIdStr !== '' && empIdStr === String(currentUserId)) return true;
+      const tUserId = t.user_id !== undefined && t.user_id !== null ? String(t.user_id) : '';
+      if (tUserId !== '' && tUserId === String(currentUserId)) return true;
+    }
+    const assignedToStr = (t.assigned_to || t.assignee || t.employee_name || '').toLowerCase();
+    if (username && assignedToStr.length > 0) return assignedToStr.includes(username) || username.includes(assignedToStr);
+    return false;
   };
 
   const getTaskStatusDisplay = (t) => {
@@ -80,10 +86,15 @@ function Priority() {
         apiData = apiData.filter(isTaskForCurrentUser);
       }
       const apiIds = new Set(apiData.map(t => String(t.task_id || t.id)));
+      const apiTitles = new Set(apiData.map(t => String(t.task_title || t.title || t.task || t.name || '').toLowerCase().trim()));
       // Filter local tasks for this user and remove duplicates
       const extraLocal = localTasks
         .filter(lt => isTaskForCurrentUser(lt))
-        .filter(lt => !apiIds.has(String(lt.id || lt.task_id)));
+        .filter(lt => {
+          const hasId = apiIds.has(String(lt.id || lt.task_id));
+          const hasTitle = apiTitles.has(String(lt.task_title || lt.title || lt.task || lt.name || '').toLowerCase().trim());
+          return !hasId && !hasTitle;
+        });
       const merged = [...apiData, ...extraLocal];
       setTasks(groupByPriority(merged));
     } catch (err) {
@@ -143,8 +154,6 @@ function Priority() {
     } catch (err) {
       console.warn("API update failed (task may be local-only):", err);
     }
-
-    showToast(`Priority updated to "${targetPriority}" for "${targetTask.name}"`);
   };
 
   const getStatusColor = (s) => {
@@ -230,9 +239,8 @@ function Priority() {
                       e.dataTransfer.setData('text/plain', String(tItem.id));
                       e.dataTransfer.effectAllowed = 'move';
                     }}
-                    className={`bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all ${
-                      role === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-default'
-                    }`}
+                    className={`bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all ${role === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-default'
+                      }`}
                   >
                     <h4 className="font-bold text-sm text-slate-900">{tItem.name}</h4>
                     <div className="flex items-center justify-between text-xs mt-3">
@@ -279,9 +287,8 @@ function Priority() {
                       e.dataTransfer.setData('text/plain', String(tItem.id));
                       e.dataTransfer.effectAllowed = 'move';
                     }}
-                    className={`bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all ${
-                      role === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-default'
-                    }`}
+                    className={`bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all ${role === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-default'
+                      }`}
                   >
                     <h4 className="font-bold text-sm text-slate-900">{tItem.name}</h4>
                     <div className="flex items-center justify-between text-xs mt-3">
@@ -328,9 +335,8 @@ function Priority() {
                       e.dataTransfer.setData('text/plain', String(tItem.id));
                       e.dataTransfer.effectAllowed = 'move';
                     }}
-                    className={`bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all ${
-                      role === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-default'
-                    }`}
+                    className={`bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all ${role === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-default'
+                      }`}
                   >
                     <h4 className="font-bold text-sm text-slate-900">{tItem.name}</h4>
                     <div className="flex items-center justify-between text-xs mt-3">

@@ -2,7 +2,6 @@ import axios from "axios";
 
 export const showToast = (message, type = "info") => {
     console.log(`[Toast Notification - ${type.toUpperCase()}]:`, message);
-    alert(message);
 };
 
 const api = axios.create({

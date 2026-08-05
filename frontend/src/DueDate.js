@@ -26,12 +26,20 @@ function DueDate() {
 
   const isTaskForCurrentUser = (t) => {
     if (role === 'admin') return true;
-    const empIdStr = t.employee_id !== undefined && t.employee_id !== null ? String(t.employee_id) : (t.user_id !== undefined && t.user_id !== null ? String(t.user_id) : '');
-    const assignedToStr = (t.assigned_to || t.assignee || t.employee_name || t.username || t.createdBy || '').toLowerCase();
-    const taskUsername = (t.username || '').toLowerCase();
-    if (userId && empIdStr !== '' && empIdStr === String(userId)) return true;
+
+    const empId = localStorage.getItem('employee_id');
+    const uid = localStorage.getItem('userId') || localStorage.getItem('user_id');
+
+    const empIdStr = t.employee_id !== undefined && t.employee_id !== null ? String(t.employee_id) : '';
+
+    // Check by employee_id
+    if (empId && empIdStr !== '' && empIdStr === String(empId)) return true;
+    // Check by user_id / userId
+    if (uid && empIdStr !== '' && empIdStr === String(uid)) return true;
+    // Check by assigned name
+    const assignedToStr = (t.assigned_to || t.assignee || t.employee_name || '').toLowerCase();
     if (username && assignedToStr.length > 0 && (assignedToStr.includes(username) || username.includes(assignedToStr))) return true;
-    if (username && taskUsername.length > 0 && taskUsername === username) return true;
+
     return false;
   };
 
@@ -85,17 +93,25 @@ function DueDate() {
   useEffect(() => {
     const fetchTasks = async () => {
       setLoading(true);
+
       const localNew = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
       const localMy = JSON.parse(localStorage.getItem('myTasks') || '[]');
       const localAll = JSON.parse(localStorage.getItem('tasks') || '[]');
       const localTasks = [...localNew, ...localMy, ...localAll];
 
-      const seenLocal = new Set();
+      const seenLocalIds = new Set();
+      const seenLocalTitles = new Set();
       const uniqueLocal = [];
       localTasks.forEach(lt => {
-        const idKey = String(lt.task_id || lt.id || lt.title || lt.task_title);
-        if (!seenLocal.has(idKey)) {
-          seenLocal.add(idKey);
+        const idKey = String(lt.task_id || lt.id);
+        const titleKey = String(lt.task_title || lt.title || lt.task || lt.name || '').toLowerCase().trim();
+        
+        const hasId = idKey !== 'undefined' && seenLocalIds.has(idKey);
+        const hasTitle = titleKey !== '' && seenLocalTitles.has(titleKey);
+
+        if (!hasId && !hasTitle) {
+          if (idKey !== 'undefined') seenLocalIds.add(idKey);
+          if (titleKey !== '') seenLocalTitles.add(titleKey);
           uniqueLocal.push(lt);
         }
       });
@@ -112,7 +128,13 @@ function DueDate() {
 
         // Merge without duplicates
         const apiIds = new Set(apiData.map(t => String(t.task_id || t.id)));
-        const extraLocal = filteredLocal.filter(lt => !apiIds.has(String(lt.id || lt.task_id)));
+        const apiTitles = new Set(apiData.map(t => String(t.task_title || t.title || t.task || t.name || '').toLowerCase().trim()));
+        
+        const extraLocal = filteredLocal.filter(lt => {
+          const hasId = apiIds.has(String(lt.id || lt.task_id));
+          const hasTitle = apiTitles.has(String(lt.task_title || lt.title || lt.task || lt.name || '').toLowerCase().trim());
+          return !hasId && !hasTitle;
+        });
         const merged = [...apiData, ...extraLocal];
 
         setTasks(merged);
@@ -146,12 +168,15 @@ function DueDate() {
     localStorage.removeItem('allNotificationsCleared');
 
     try {
-      await api.post('/notifications/', null, {
-        params: {
-          employee_id: 1,
-          message: messageText
-        }
-      });
+      const currentEmpId = localStorage.getItem('employee_id');
+      if (currentEmpId) {
+        await api.post('/notifications/', null, {
+          params: {
+            employee_id: Number(currentEmpId),
+            message: messageText
+          }
+        });
+      }
     } catch (err) {
       console.warn('API post notification failed:', err);
     }
@@ -212,9 +237,6 @@ function DueDate() {
     } catch (err) {
       console.warn("API update failed (task may be local-only):", err);
     }
-
-    const categoryNames = { upcoming: 'Upcoming', overdue: 'Overdue', today: 'Today' };
-    showToast(`Due date updated to ${categoryNames[targetCategory]} for "${targetTask.task_title || targetTask.title || targetTask.name || 'Task'}"`);
   };
 
   // Calendar dates representation
@@ -301,9 +323,8 @@ function DueDate() {
                     e.dataTransfer.setData('text/plain', String(t.id));
                     e.dataTransfer.effectAllowed = 'move';
                   }}
-                  className={`bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all ${
-                    role === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-pointer'
-                  }`}
+                  className={`bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all ${role === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-pointer'
+                    }`}
                   onClick={() => navigate(`/tasks/${t.id}`)}
                 >
                   <h4 className="font-bold text-sm text-slate-900">{t.name}</h4>
@@ -347,9 +368,8 @@ function DueDate() {
                     e.dataTransfer.setData('text/plain', String(t.id));
                     e.dataTransfer.effectAllowed = 'move';
                   }}
-                  className={`bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all ${
-                    role === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-pointer'
-                  }`}
+                  className={`bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all ${role === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-pointer'
+                    }`}
                   onClick={() => navigate(`/tasks/${t.id}`)}
                 >
                   <h4 className="font-bold text-sm text-slate-900">{t.name || t.task_title || t.title || 'Untitled Task'}</h4>
@@ -393,9 +413,8 @@ function DueDate() {
                     e.dataTransfer.setData('text/plain', String(t.id));
                     e.dataTransfer.effectAllowed = 'move';
                   }}
-                  className={`bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all ${
-                    role === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-pointer'
-                  }`}
+                  className={`bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all ${role === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-pointer'
+                    }`}
                   onClick={() => navigate(`/tasks/${t.id}`)}
                 >
                   <h4 className="font-bold text-sm text-slate-900">{t.name}</h4>
@@ -476,8 +495,8 @@ function DueDate() {
                 ))}
 
               {tasks.filter((t) => {
-                  const due = t.due_date || t.dueDate;
-                  return due && new Date(due).getDate() === selectedDate;
+                const due = t.due_date || t.dueDate;
+                return due && new Date(due).getDate() === selectedDate;
               }).length === 0 && (
                   <p className="text-xs text-slate-900 font-medium">
                     {t('noTasksDate')}

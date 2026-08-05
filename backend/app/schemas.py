@@ -9,15 +9,17 @@ from pydantic import BaseModel, ConfigDict
 class UserBase(BaseModel):
     username: str
     employee_id: int | None = None
-    role: str
+    role: str = "Employee"
 
 
 class UserCreate(UserBase):
     password: str
+    email: str | None = None
 
 
 class UserOut(UserBase):
     user_id: int
+    email: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -53,6 +55,10 @@ class EmployeeBase(BaseModel):
     phone: str | None = None
     department: str | None = None
     designation: str | None = None
+
+
+class EmployeeCreate(EmployeeBase):
+    pass
 
 
 class EmployeeOut(EmployeeBase):

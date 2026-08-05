@@ -11,6 +11,8 @@ function TaskStatus() {
     completed: [],
     onHold: []
   });
+  const [showNotion, setShowNotion] = useState(true);
+
 
   const role = (localStorage.getItem('role') || 'employee').toLowerCase();
   const username = (localStorage.getItem('username') || '').toLowerCase();
@@ -19,13 +21,19 @@ function TaskStatus() {
   const isTaskForCurrentUser = (t) => {
     if (role === 'admin') return true;
     const empIdStr = t.employee_id !== undefined && t.employee_id !== null ? String(t.employee_id) : '';
-    const assignedToStr = (t.assigned_to || t.assignee || t.employee_name || t.username || t.createdBy || '').toLowerCase();
-    const taskUsername = (t.username || '').toLowerCase();
-    return (
-      (userId && empIdStr !== '' && empIdStr === String(userId)) ||
-      (username && assignedToStr.length > 0 && (assignedToStr.includes(username) || username.includes(assignedToStr))) ||
-      (username && taskUsername.length > 0 && (taskUsername === username))
-    );
+    const currentEmpId = localStorage.getItem('employee_id');
+    const currentUserId = localStorage.getItem('userId') || localStorage.getItem('user_id');
+    if (currentEmpId && empIdStr !== '') {
+      if (empIdStr === String(currentEmpId)) return true;
+    }
+    if (currentUserId) {
+      if (empIdStr !== '' && empIdStr === String(currentUserId)) return true;
+      const tUserId = t.user_id !== undefined && t.user_id !== null ? String(t.user_id) : '';
+      if (tUserId !== '' && tUserId === String(currentUserId)) return true;
+    }
+    const assignedToStr = (t.assigned_to || t.assignee || t.employee_name || '').toLowerCase();
+    if (username && assignedToStr.length > 0) return assignedToStr.includes(username) || username.includes(assignedToStr);
+    return false;
   };
 
   const groupTasks = (taskList) => {
@@ -81,10 +89,15 @@ function TaskStatus() {
         apiData = apiData.filter(isTaskForCurrentUser);
       }
       const apiIds = new Set(apiData.map(t => String(t.task_id || t.id)));
+      const apiTitles = new Set(apiData.map(t => String(t.task_title || t.title || t.task || t.name || '').toLowerCase().trim()));
       // Filter local tasks for this user and remove duplicates
       const extraLocal = localTasks
         .filter(lt => isTaskForCurrentUser(lt))
-        .filter(lt => !apiIds.has(String(lt.id || lt.task_id)));
+        .filter(lt => {
+          const hasId = apiIds.has(String(lt.id || lt.task_id));
+          const hasTitle = apiTitles.has(String(lt.task_title || lt.title || lt.task || lt.name || '').toLowerCase().trim());
+          return !hasId && !hasTitle;
+        });
       const merged = [...apiData, ...extraLocal];
       setTasks(groupTasks(merged));
     } catch (err) {
@@ -98,11 +111,6 @@ function TaskStatus() {
   }, []);
 
   const handleDropStatus = async (taskId, targetStatusKey) => {
-    if (role !== 'admin') {
-      showToast('Only admins can change task status', 'error');
-      return;
-    }
-
     const statusIdMap = { pending: 1, inProgress: 2, completed: 3, onHold: 4 };
     const statusStrMap = { pending: 'pending', inProgress: 'in_progress', completed: 'completed', onHold: 'on_hold' };
     const statusDisplayMap = { pending: 'Pending', inProgress: 'In Progress', completed: 'Completed', onHold: 'On Hold' };
@@ -149,8 +157,6 @@ function TaskStatus() {
     } catch (err) {
       console.warn("API update failed (task may be local-only):", err);
     }
-
-    showToast(`Status updated to "${statusDisplay}" for "${targetTask.name}"`);
   };
 
   const getStatusBadgeStyle = (status) => {
@@ -181,21 +187,36 @@ function TaskStatus() {
           <h2 className="text-3xl font-bold text-white">{t("taskStatusManagement")}</h2>
         </div>
 
+        {/* Employee Notification Banner */}
+        {role !== 'admin' && showNotion && (
+          <div className="bg-blue-900/40 border border-blue-500/50 p-4 rounded-xl flex items-center justify-between shadow-lg backdrop-blur-sm mt-2">
+            <div className="flex items-center gap-4">
+              <span className="text-2xl">🔔</span>
+              <div>
+                <h4 className="text-blue-100 font-bold text-base md:text-lg">Hello {username || 'Employee'}, here is your task summary:</h4>
+                <p className="text-blue-200/80 text-sm mt-0.5">
+                  You have <strong className="text-white">{tasks.pending.length}</strong> pending, <strong className="text-white">{tasks.inProgress.length}</strong> in progress, and <strong className="text-white">{tasks.onHold.length}</strong> on hold.
+                </p>
+              </div>
+            </div>
+            <button onClick={() => setShowNotion(false)} className="text-blue-300 hover:text-white font-bold text-2xl px-2 transition-colors">
+              &times;
+            </button>
+          </div>
+        )}
+
+
+
         {/* Columns Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mt-4">
           {/* Column 1: Pending */}
           <div
             onDragOver={(e) => {
-              if (role !== 'admin') return;
               e.preventDefault();
               e.dataTransfer.dropEffect = 'move';
             }}
             onDrop={(e) => {
               e.preventDefault();
-              if (role !== 'admin') {
-                showToast('Only admins can change task status', 'error');
-                return;
-              }
               const taskId = e.dataTransfer.getData('text/plain');
               if (taskId) handleDropStatus(taskId, 'pending');
             }}
@@ -208,15 +229,12 @@ function TaskStatus() {
               {tasks.pending.map((item) => (
                 <div
                   key={item.id}
-                  draggable={role === 'admin'}
+                  draggable={true}
                   onDragStart={(e) => {
-                    if (role !== 'admin') return;
                     e.dataTransfer.setData('text/plain', String(item.id));
                     e.dataTransfer.effectAllowed = 'move';
                   }}
-                  className={`bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all ${
-                    role === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-default'
-                  }`}
+                  className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all cursor-grab active:cursor-grabbing hover:shadow-lg"
                 >
                   <h4 className="font-bold text-sm text-slate-900">{item.name}</h4>
                   <div className="flex items-center justify-between text-xs mt-3">
@@ -233,16 +251,11 @@ function TaskStatus() {
           {/* Column 2: In Progress */}
           <div
             onDragOver={(e) => {
-              if (role !== 'admin') return;
               e.preventDefault();
               e.dataTransfer.dropEffect = 'move';
             }}
             onDrop={(e) => {
               e.preventDefault();
-              if (role !== 'admin') {
-                showToast('Only admins can change task status', 'error');
-                return;
-              }
               const taskId = e.dataTransfer.getData('text/plain');
               if (taskId) handleDropStatus(taskId, 'inProgress');
             }}
@@ -255,15 +268,12 @@ function TaskStatus() {
               {tasks.inProgress.map((item) => (
                 <div
                   key={item.id}
-                  draggable={role === 'admin'}
+                  draggable={true}
                   onDragStart={(e) => {
-                    if (role !== 'admin') return;
                     e.dataTransfer.setData('text/plain', String(item.id));
                     e.dataTransfer.effectAllowed = 'move';
                   }}
-                  className={`bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all ${
-                    role === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-default'
-                  }`}
+                  className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all cursor-grab active:cursor-grabbing hover:shadow-lg"
                 >
                   <h4 className="font-bold text-sm text-slate-900">{item.name}</h4>
                   <div className="flex items-center justify-between text-xs mt-3">
@@ -280,16 +290,11 @@ function TaskStatus() {
           {/* Column 3: Completed */}
           <div
             onDragOver={(e) => {
-              if (role !== 'admin') return;
               e.preventDefault();
               e.dataTransfer.dropEffect = 'move';
             }}
             onDrop={(e) => {
               e.preventDefault();
-              if (role !== 'admin') {
-                showToast('Only admins can change task status', 'error');
-                return;
-              }
               const taskId = e.dataTransfer.getData('text/plain');
               if (taskId) handleDropStatus(taskId, 'completed');
             }}
@@ -302,15 +307,12 @@ function TaskStatus() {
               {tasks.completed.map((item) => (
                 <div
                   key={item.id}
-                  draggable={role === 'admin'}
+                  draggable={true}
                   onDragStart={(e) => {
-                    if (role !== 'admin') return;
                     e.dataTransfer.setData('text/plain', String(item.id));
                     e.dataTransfer.effectAllowed = 'move';
                   }}
-                  className={`bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all ${
-                    role === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-default'
-                  }`}
+                  className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all cursor-grab active:cursor-grabbing hover:shadow-lg"
                 >
                   <h4 className="font-bold text-sm text-slate-900">{item.name}</h4>
                   <div className="flex items-center justify-between text-xs mt-3">
@@ -327,16 +329,11 @@ function TaskStatus() {
           {/* Column 4: On Hold */}
           <div
             onDragOver={(e) => {
-              if (role !== 'admin') return;
               e.preventDefault();
               e.dataTransfer.dropEffect = 'move';
             }}
             onDrop={(e) => {
               e.preventDefault();
-              if (role !== 'admin') {
-                showToast('Only admins can change task status', 'error');
-                return;
-              }
               const taskId = e.dataTransfer.getData('text/plain');
               if (taskId) handleDropStatus(taskId, 'onHold');
             }}
@@ -349,15 +346,12 @@ function TaskStatus() {
               {tasks.onHold.map((item) => (
                 <div
                   key={item.id}
-                  draggable={role === 'admin'}
+                  draggable={true}
                   onDragStart={(e) => {
-                    if (role !== 'admin') return;
                     e.dataTransfer.setData('text/plain', String(item.id));
                     e.dataTransfer.effectAllowed = 'move';
                   }}
-                  className={`bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all ${
-                    role === 'admin' ? 'cursor-grab active:cursor-grabbing hover:shadow-lg' : 'cursor-default'
-                  }`}
+                  className="bg-white text-slate-800 p-4 rounded-xl shadow-md border border-slate-100 transition-all cursor-grab active:cursor-grabbing hover:shadow-lg"
                 >
                   <h4 className="font-bold text-sm text-slate-900">{item.name}</h4>
                   <div className="flex items-center justify-between text-xs mt-3">
