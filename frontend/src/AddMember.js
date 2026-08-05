@@ -14,7 +14,7 @@ function AddMember() {
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) { console.warn('Photo 2MB peksha lahan pahijel'); return; }
+      if (file.size > 2 * 1024 * 1024) { console.log('Photo must be under 2MB'); return; }
       setPhoto(file);
       const reader = new FileReader();
       reader.onloadend = () => setPhotoPreview(reader.result);

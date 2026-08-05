@@ -32,6 +32,7 @@ class User(Base):
     )
 
     username = Column(String(50), unique=True)
+    email = Column(String(100), nullable=True)
     password = Column(String(100))
     
     role = Column(

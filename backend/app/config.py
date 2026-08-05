@@ -16,8 +16,10 @@ class Settings(BaseSettings):
     DB_NAME: str
     DB_CHARSET: str = "utf8mb4"
 
-    SMTP_SERVER: str = "smtp.gmail.com"
+    # SMTP Email Settings (Gmail)
+    SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
+    SMTP_EMAIL: str = ""
     SMTP_USERNAME: str = ""
     SMTP_PASSWORD: str = ""
 

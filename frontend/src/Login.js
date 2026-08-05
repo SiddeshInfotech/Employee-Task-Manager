@@ -15,48 +15,55 @@ function Login() {
   const [role, setRole] = useState('employee');
   const [loading, setLoading] = useState(false);
 
+  const performLogin = async (loginUsername, loginPassword) => {
+    const cleanUsername = (loginUsername || '').trim();
+    console.log("[Login] Attempting login for username:", cleanUsername);
+    const params = new URLSearchParams();
+    params.append('username', cleanUsername);
+    params.append('password', loginPassword);
+
+    const res = await api.post('/auth/login', params, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+    console.log("[Login] Success response:", res.data);
+    if (res.data?.access_token) {
+      localStorage.setItem('token', res.data.access_token);
+      localStorage.setItem('username', cleanUsername);
+
+      let userRole = res.data?.role;
+      let empId = null;
+      let uid = null;
+      try {
+        const payload = JSON.parse(atob(res.data.access_token.split('.')[1]));
+        if (!userRole) userRole = payload.role;
+        empId = payload.employee_id;
+        uid = payload.id;
+      } catch (err) {
+        console.error("Failed to decode JWT payload:", err);
+      }
+      const finalRole = (userRole || role || 'employee').toLowerCase();
+      localStorage.setItem('role', finalRole);
+      if (empId !== null && empId !== undefined) {
+        localStorage.setItem('employee_id', String(empId));
+      }
+      if (uid !== null && uid !== undefined) {
+        localStorage.setItem('user_id', String(uid));
+      }
+      console.log("Login stored - role:", finalRole, "employee_id:", empId, "user_id:", uid);
+      showToast('Login successful!', 'success');
+      navigate('/dashboard');
+      return true;
+    } else {
+      showToast('Token not received from server', 'error');
+      return false;
+    }
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      console.log("[Login] Attempting login for username:", username);
-      const params = new URLSearchParams();
-      params.append('username', username);
-      params.append('password', password);
-
-      const res = await api.post('/auth/login', params, {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-      });
-      console.log("[Login] Success response:", res.data);
-      if (res.data?.access_token) {
-        localStorage.setItem('token', res.data.access_token);
-        localStorage.setItem('username', username);
-
-        let userRole = res.data?.role;
-        let empId = null;
-        let uid = null;
-        try {
-          const payload = JSON.parse(atob(res.data.access_token.split('.')[1]));
-          if (!userRole) userRole = payload.role;
-          empId = payload.employee_id;
-          uid = payload.id;
-        } catch (err) {
-          console.error("Failed to decode JWT payload:", err);
-        }
-        const finalRole = (userRole || 'employee').toLowerCase();
-        localStorage.setItem('role', finalRole);
-        if (empId !== null && empId !== undefined) {
-          localStorage.setItem('employee_id', String(empId));
-        }
-        if (uid !== null && uid !== undefined) {
-          localStorage.setItem('user_id', String(uid));
-        }
-        console.log("Login stored - role:", finalRole, "employee_id:", empId, "user_id:", uid);
-        showToast('Login successful!', 'success');
-        navigate('/dashboard');
-      } else {
-        showToast('Token not received from server', 'error');
-      }
+      await performLogin(username, password);
     } catch (err) {
       console.error("[Login] Error details:", err);
       let errorMsg = "Login failed";
@@ -82,13 +89,15 @@ function Login() {
   const handleRegister = async (e) => {
     e.preventDefault();
     setLoading(true);
+    const cleanUsername = (username || '').trim();
+    const cleanEmail = (email || '').trim();
     try {
-      console.log("[Register] Attempting registration for:", username, email, employeeId, role);
+      console.log("[Register] Attempting registration for:", cleanUsername, cleanEmail, employeeId, role);
       const formattedRole = role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
       const parsedEmployeeId = (role.toLowerCase() === 'admin' && !employeeId) ? null : (employeeId ? Number(employeeId) : null);
       await api.post('/auth/register', {
-        username,
-        email,
+        username: cleanUsername,
+        email: cleanEmail,
         employee_id: parsedEmployeeId,
         password,
         role: formattedRole
@@ -96,46 +105,22 @@ function Login() {
       showToast('Registration successful!', 'success');
 
       // Auto Login
-      const params = new URLSearchParams();
-      params.append('username', username);
-      params.append('password', password);
-
-      const res = await api.post('/auth/login', params, {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-      });
-      console.log("[Register] Auto login response:", res.data);
-
-      if (res.data?.access_token) {
-        localStorage.setItem('token', res.data.access_token);
-        localStorage.setItem('username', username);
-
-        let userRole = res.data?.role;
-        let empId = null;
-        let uid = null;
-        try {
-          const payload = JSON.parse(atob(res.data.access_token.split('.')[1]));
-          if (!userRole) userRole = payload.role;
-          empId = payload.employee_id;
-          uid = payload.id;
-        } catch (err) {
-          console.error("Failed to decode JWT payload:", err);
-        }
-        const finalRole = (userRole || role || 'employee').toLowerCase();
-        localStorage.setItem('role', finalRole);
-        if (empId !== null && empId !== undefined) {
-          localStorage.setItem('employee_id', String(empId));
-        }
-        if (uid !== null && uid !== undefined) {
-          localStorage.setItem('user_id', String(uid));
-        }
-        console.log("Register stored - role:", finalRole, "employee_id:", empId, "user_id:", uid);
-      } else {
-        localStorage.setItem('role', role.toLowerCase());
-      }
-      navigate('/dashboard');
-
+      await performLogin(cleanUsername, password);
     } catch (err) {
       console.error("[Register] Error details:", err);
+      const detailStr = String(err.response?.data?.detail || '');
+
+      // If user is already registered, automatically sign them in
+      if (err.response?.status === 400 && (detailStr.toLowerCase().includes('already registered') || detailStr.toLowerCase().includes('exists'))) {
+        console.log("User already registered, attempting sign in automatically...");
+        try {
+          await performLogin(cleanUsername, password);
+          return;
+        } catch (loginErr) {
+          console.error("[Auto-Login Error after Register]", loginErr);
+        }
+      }
+
       let errorMsg = "Registration failed";
       if (err.response?.data?.detail) {
         errorMsg = typeof err.response.data.detail === 'object'
@@ -236,7 +221,7 @@ function Login() {
               {!isLogin && (
                 <div>
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
-                    Employee ID
+                    {role.toLowerCase() === 'admin' ? 'ADMIN ID' : 'EMPLOYEE ID'}
                   </label>
                   <input
                     type="number"

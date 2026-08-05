@@ -63,7 +63,8 @@ function MyTask() {
       status: statusDisplay,
       priority: priorityDisplay,
       progress: progressVal,
-      assignee: t.assigned_to || t.assignee || (t.employee_id ? `Employee #${t.employee_id}` : 'Unassigned')
+      assignee: t.assigned_to || t.assignee || (t.employee_id ? `Employee #${t.employee_id}` : 'Unassigned'),
+      email: t.email || t.employee_email || ''
     };
   };
 
@@ -95,6 +96,19 @@ function MyTask() {
 
   const fetchTasks = async () => {
     const localTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
+    let uMap = {};
+    try {
+      const uRes = await api.get('/users/');
+      if (uRes.data) {
+        uRes.data.forEach(u => { uMap[String(u.id || u.user_id || u.employee_id)] = u.email; });
+      }
+    } catch (e) {}
+
+    const localMembers = JSON.parse(localStorage.getItem('myNewMembers') || '[]');
+    const localUsers = JSON.parse(localStorage.getItem('myNewUsers') || '[]');
+    [...localMembers, ...localUsers].forEach(u => {
+      if (u && u.id && u.email) uMap[String(u.id)] = u.email;
+    });
 
     try {
       const res = await api.get('/tasks/?skip=0&limit=100');
@@ -116,13 +130,13 @@ function MyTask() {
           return isTaskForCurrentUser(lt);
         });
 
-        const merged = [...taskData, ...filteredLocal];
+        const merged = [...taskData, ...filteredLocal].map(t => ({...t, email: t.email || uMap[String(t.employee_id)] || ''}));
         setTasks(merged.map(mapTask));
       }
 
     } catch (err) {
       console.warn("API unavailable, loading from localStorage:", err);
-      const filteredLocal = localTasks.filter(isTaskForCurrentUser);
+      const filteredLocal = localTasks.filter(isTaskForCurrentUser).map(t => ({...t, email: t.email || uMap[String(t.employee_id)] || ''}));
       setTasks(filteredLocal.map(mapTask));
     }
   };
@@ -321,6 +335,11 @@ function MyTask() {
                         <div className="text-[10px] text-slate-400 mt-0.5">
                           {t("assignedTo")}: {task.assignee}
                         </div>
+                        {task.email && (
+                          <div className="text-[10px] text-slate-500 mt-0.5">
+                            Email: {task.email}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-semibold">{task.due}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -349,6 +368,14 @@ function MyTask() {
                           >
                             <Eye className="w-3.5 h-3.5" />
                             {t("viewDetail")}
+                          </button>
+
+                          <button
+                            onClick={() => navigate(`/tasks/${task.id}`, { state: { edit: true } })}
+                            className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg transition-all"
+                            title="Edit Task"
+                          >
+                            <Pencil className="w-4 h-4" />
                           </button>
 
                           {role === 'admin' && (

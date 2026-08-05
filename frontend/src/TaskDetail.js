@@ -14,6 +14,7 @@ function TaskDetail() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(location.state?.edit || false);
 
+
   // Form states
   const [editForm, setEditForm] = useState({
     title: '',
@@ -23,7 +24,7 @@ function TaskDetail() {
     due_date: ''
   });
 
-  const role = localStorage.getItem('role') || 'employee';
+  const role = (localStorage.getItem('role') || 'employee').toLowerCase();
 
   const fetchTaskDetails = async () => {
     setLoading(true);
@@ -230,7 +231,7 @@ function TaskDetail() {
             {/* Title field */}
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Task Title</label>
-              {editing && role === 'admin' ? (
+              {editing ? (
                 <input
                   type="text"
                   required
@@ -246,7 +247,7 @@ function TaskDetail() {
             {/* Description field */}
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Task Description</label>
-              {editing && role === 'admin' ? (
+              {editing ? (
                 <textarea
                   required
                   value={editForm.description}
@@ -283,7 +284,7 @@ function TaskDetail() {
               {/* Priority Select */}
               <div>
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Priority</label>
-                {editing && role === 'admin' ? (
+                {editing ? (
                   <select
                     value={editForm.priority}
                     onChange={(e) => setEditForm({ ...editForm, priority: e.target.value })}
@@ -303,7 +304,7 @@ function TaskDetail() {
               {/* Due date picker */}
               <div>
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Due Date</label>
-                {editing && role === 'admin' ? (
+                {editing ? (
                   <input
                     type="datetime-local"
                     value={editForm.due_date}

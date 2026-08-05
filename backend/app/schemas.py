@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict
 class UserBase(BaseModel):
     username: str
     employee_id: int | None = None
+    email: str | None = None
     role: str = "Employee"
 
 

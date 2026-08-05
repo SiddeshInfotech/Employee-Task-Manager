@@ -1,6 +1,11 @@
 from sqlalchemy.orm import Session
 from app import models, schemas
 from app.auth import get_password_hash
+from app.email_service import send_welcome_email
+import threading
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 # -------------------------
@@ -133,7 +138,8 @@ def create_user(db: Session, user: schemas.UserCreate):
 
     db_user = models.User(
         username=user.username,
-        employee_id=employee_id,
+        email=user.email,
+        employee_id=user.employee_id if user.employee_id else employee_id,
         password=hashed_password,
         role=formatted_role
     )
@@ -150,7 +156,52 @@ def create_user(db: Session, user: schemas.UserCreate):
             f"Hello {user.username},\n\nYour account has been registered successfully!\n\nUsername: {user.username}\nRole: {formatted_role}\nEmployee ID: {employee_id or 'N/A (Admin)'}\n\nBest regards,\nTeam"
         )
 
+    # Send welcome email in background thread
+    # so it doesn't block the API response
+    if user.email:
+        thread = threading.Thread(
+            target=_send_email_background,
+            args=(
+                user.email,
+                user.username,
+                user.password,
+                formatted_role
+            ),
+            daemon=True
+        )
+        thread.start()
+
     return db_user
+
+
+def _send_email_background(
+    email: str,
+    username: str,
+    password: str,
+    role: str
+):
+    """Send welcome email in a background thread."""
+    try:
+        success = send_welcome_email(
+            to_email=email,
+            username=username,
+            password=password,
+            role=role
+        )
+        if success:
+            logger.info(
+                "Welcome email sent to %s", email
+            )
+        else:
+            logger.warning(
+                "Failed to send welcome email to %s",
+                email
+            )
+    except Exception as e:
+        logger.error(
+            "Error sending welcome email to %s: %s",
+            email, str(e)
+        )
 
 
 # -------------------------

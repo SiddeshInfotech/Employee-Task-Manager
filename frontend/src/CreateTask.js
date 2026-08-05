@@ -11,9 +11,21 @@ function CreateTask() {
     description: '',
     due_date: '',
     assigned_to_id: '',
-    priority_id: 1,
-    status_id: 1
+    status_id: 1,
+    priority_id: 1
   });
+
+  const statuses = [
+    { id: 1, name: 'Pending' },
+    { id: 2, name: 'In Progress' },
+    { id: 3, name: 'Completed' }
+  ];
+
+  const priorities = [
+    { id: 1, name: 'High' },
+    { id: 2, name: 'Medium' },
+    { id: 3, name: 'Low' }
+  ];
   const [users, setUsers] = useState([]);
   const role = localStorage.getItem('role') || 'employee';
 
@@ -102,20 +114,9 @@ function CreateTask() {
       assigned_to: assignedName,
       assignee: assignedName,
       status_id: Number(taskForm.status_id),
-      status:
-        taskForm.status_id === 1 || taskForm.status_id === "1"
-          ? "Pending"
-          : taskForm.status_id === 2 || taskForm.status_id === "2"
-            ? "In Progress"
-            : "Completed",
-
+      status: statuses.find(s => s.id === Number(taskForm.status_id))?.name || 'Pending',
       priority_id: Number(taskForm.priority_id),
-      priority:
-        taskForm.priority_id === 1 || taskForm.priority_id === "1"
-          ? "High"
-          : taskForm.priority_id === 2 || taskForm.priority_id === "2"
-            ? "Medium"
-            : "Low",
+      priority: priorities.find(p => p.id === Number(taskForm.priority_id))?.name || 'High',
       due_date: formattedDueDate || new Date().toISOString().split('T')[0]
     };
     try {
@@ -141,8 +142,8 @@ function CreateTask() {
       description: '',
       due_date: '',
       assigned_to_id: '',
-      priority_id: 1,
-      status_id: 1
+      status_id: 1,
+      priority_id: 1
     });
   };
 
@@ -234,48 +235,40 @@ function CreateTask() {
                 </select>
               </div>
             </div>
-            {/* Status */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">
-                Status
-              </label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
+              {/* Task Status */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Task Status</label>
+                <select
+                  value={taskForm.status_id}
+                  onChange={(e) => setTaskForm({ ...taskForm, status_id: Number(e.target.value) })}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none text-black bg-white"
+                  style={{ color: "#000", backgroundColor: "#fff" }}
+                >
+                  {statuses.map(s => (
+                    <option key={s.id} value={s.id} style={{ color: "#000", backgroundColor: "#fff" }}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-              <select
-                value={taskForm.status_id}
-                onChange={(e) => setTaskForm({
-                  ...taskForm,
-                  status_id: Number(e.target.value)
-                })}
-                className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-black"
-              >
-
-                <option value="1">Pending</option>
-                <option value="2">In Progress</option>
-                <option value="3">Completed</option>
-                <option value="4">On Hold</option>
-
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">
-                Priority
-              </label>
-
-              <select
-                value={taskForm.priority_id}
-                onChange={(e) => setTaskForm({
-                  ...taskForm,
-                  priority_id: Number(e.target.value)
-                })}
-                className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-black"
-              >
-
-                <option value="1">High</option>
-                <option value="2">Medium</option>
-                <option value="3">Low</option>
-
-              </select>
+              {/* Priority */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Priority</label>
+                <select
+                  value={taskForm.priority_id}
+                  onChange={(e) => setTaskForm({ ...taskForm, priority_id: Number(e.target.value) })}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none text-black bg-white"
+                  style={{ color: "#000", backgroundColor: "#fff" }}
+                >
+                  {priorities.map(p => (
+                    <option key={p.id} value={p.id} style={{ color: "#000", backgroundColor: "#fff" }}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* Reset / Submit Actions */}
