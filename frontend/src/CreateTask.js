@@ -10,86 +10,139 @@ function CreateTask() {
     title: '',
     description: '',
     due_date: '',
-    assigned_to_id: ''
+    assigned_to_id: '',
+    priority_id: 1,
+    status_id: 1
   });
   const [users, setUsers] = useState([]);
   const role = localStorage.getItem('role') || 'employee';
 
   useEffect(() => {
-    if (role !== 'admin') {
-      showToast('Only admins can create tasks');
-      navigate('/my-task');
-      return;
-    }
-
     const fetchUsers = async () => {
       try {
-        const res = await api.get('/users/');
-        if (res.data) setUsers(res.data);
+        const res = await api.get('/employees/');
+        let employeeList = (res.data || []).map(emp => ({
+          id: emp.employee_id,
+          employee_id: emp.employee_id,
+          username: `${emp.first_name} ${emp.last_name}`.trim() || `Employee #${emp.employee_id}`,
+          email: emp.email || ''
+        }));
+
+        const localMembers = JSON.parse(localStorage.getItem('myNewMembers') || '[]');
+        const localUsers = JSON.parse(localStorage.getItem('myNewUsers') || '[]');
+
+        const combined = [...employeeList];
+        [...localMembers, ...localUsers].forEach(lm => {
+          if (lm) {
+            const empId = lm.employee_id || (lm.id && Number(lm.id) <= 2147483647 ? lm.id : null);
+            const matchedDbEmp = employeeList.find(e => e.email && lm.email && e.email.toLowerCase() === lm.email.toLowerCase());
+            const finalId = empId || (matchedDbEmp ? matchedDbEmp.employee_id : (lm.id && Number(lm.id) <= 2147483647 ? lm.id : null));
+            if (finalId && !combined.some(u => String(u.id) === String(finalId))) {
+              combined.push({
+                id: finalId,
+                employee_id: finalId,
+                username: lm.name || lm.username || `Employee #${finalId}`,
+                email: lm.email || ''
+              });
+            }
+          }
+        });
+
+        setUsers(combined);
       } catch (err) {
-        console.error('Failed to load users for task assignment', err);
+        console.error('Failed to load employees for task assignment', err);
+        const localMembers = JSON.parse(localStorage.getItem('myNewMembers') || '[]');
+        const localUsers = JSON.parse(localStorage.getItem('myNewUsers') || '[]');
+        setUsers([...localMembers, ...localUsers]);
       }
     };
 
     fetchUsers();
-  }, [role, navigate]);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Format payload to match backend schema (task_title, task_description, employee_id, due_date)
     const formattedDueDate = taskForm.due_date ? taskForm.due_date.split('T')[0] : null;
-    const assignedEmpId = taskForm.assigned_to_id ? Number(taskForm.assigned_to_id) : null;
+    const currentEmployeeId = localStorage.getItem('employee_id') || null;
+    let assignedEmpId = taskForm.assigned_to_id ? Number(taskForm.assigned_to_id) : (currentEmployeeId ? Number(currentEmployeeId) : null);
 
+    const assignedUserObj = users.find(u => String(u.id) === String(taskForm.assigned_to_id) || String(u.employee_id) === String(taskForm.assigned_to_id));
+    if (assignedUserObj) {
+      if (assignedUserObj.employee_id) {
+        assignedEmpId = Number(assignedUserObj.employee_id);
+      } else if (assignedUserObj.id && Number(assignedUserObj.id) <= 2147483647) {
+        assignedEmpId = Number(assignedUserObj.id);
+      }
+    }
+    if (assignedEmpId && assignedEmpId > 2147483647) {
+      assignedEmpId = currentEmployeeId && Number(currentEmployeeId) <= 2147483647 ? Number(currentEmployeeId) : null;
+    }
+
+    const assignedName = assignedUserObj ? (assignedUserObj.username || assignedUserObj.name) : (localStorage.getItem('username') || 'Employee');
 
     const payload = {
       task_title: taskForm.title,
       task_description: taskForm.description,
       employee_id: assignedEmpId,
-
-      // Default values
-      status_id: 1,      // Pending
-      priority_id: 1,    // High
-
+      assigned_to: assignedName,
+      status_id: Number(taskForm.status_id),
+      priority_id: Number(taskForm.priority_id),
       due_date: formattedDueDate
     };
 
-    console.log("Submitting Create Task Payload:", payload);
+    const localTaskItem = {
+      id: Date.now(),
+      task_id: Date.now(),
+      task_title: taskForm.title,
+      title: taskForm.title,
+      task: taskForm.title,
+      task_description: taskForm.description,
+      employee_id: assignedEmpId,
+      assigned_to: assignedName,
+      assignee: assignedName,
+      status_id: Number(taskForm.status_id),
+      status:
+        taskForm.status_id === 1 || taskForm.status_id === "1"
+          ? "Pending"
+          : taskForm.status_id === 2 || taskForm.status_id === "2"
+            ? "In Progress"
+            : "Completed",
 
+      priority_id: Number(taskForm.priority_id),
+      priority:
+        taskForm.priority_id === 1 || taskForm.priority_id === "1"
+          ? "High"
+          : taskForm.priority_id === 2 || taskForm.priority_id === "2"
+            ? "Medium"
+            : "Low",
+      due_date: formattedDueDate || new Date().toISOString().split('T')[0]
+    };
     try {
+      console.log("TASK PAYLOAD:", payload);
       const res = await api.post('/tasks/', payload);
-      console.log("Create Task API Response:", res.data);
-
-      showToast('Task created successfully');
-      navigate('/my-task');
-    } catch (err) {
-      console.error("Create Task API Error:", err);
-      console.log("Error Response Data:", err.response?.data);
-      console.log("Error Status:", err.response?.status);
-
-      let errMsg = 'Failed to create task';
-      if (err.response?.data?.detail) {
-        if (typeof err.response.data.detail === 'string') {
-          errMsg = err.response.data.detail;
-        } else if (Array.isArray(err.response.data.detail)) {
-          errMsg = err.response.data.detail.map(e => `${e.loc?.slice(-1)[0] || 'field'}: ${e.msg}`).join(', ');
-        } else {
-          errMsg = JSON.stringify(err.response.data.detail);
-        }
-      } else if (err.message) {
-        errMsg = err.message;
+      if (res && res.data) {
+        // Use the real task_id from the API response
+        localTaskItem.id = res.data.task_id;
+        localTaskItem.task_id = res.data.task_id;
       }
-
-      showToast(errMsg, 'error');
+    } catch (err) {
+      console.error("Task creation failed via API, saving locally:", err);
+    } finally {
+      // Always save locally so the task appears in the UI immediately
+      const existing = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
+      localStorage.setItem('myNewTasks', JSON.stringify([...existing, localTaskItem]));
+      navigate('/my-task');
     }
   };
-
   const handleReset = () => {
     setTaskForm({
       title: '',
       description: '',
       due_date: '',
-      assigned_to_id: ''
+      assigned_to_id: '',
+      priority_id: 1,
+      status_id: 1
     });
   };
 
@@ -107,7 +160,7 @@ function CreateTask() {
             onClick={() => navigate('/my-task')}
             className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 hover:text-white rounded-xl text-xs font-bold transition-all shadow"
           >
-            <ArrowLeft className="w-4 h-4" /> Back to My Tasks
+            <ArrowLeft className="w-4 h-4" /> Back to Tasks
           </button>
         </div>
 
@@ -146,7 +199,6 @@ function CreateTask() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-
               {/* Due date picker */}
               <div>
                 <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Due Date</label>
@@ -164,22 +216,66 @@ function CreateTask() {
                 />
               </div>
 
-              {/* Assign To (Only shown if Admin) */}
-              {role === 'admin' && users.length > 0 && (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Assign To</label>
-                  <select
-                    value={taskForm.assigned_to_id}
-                    onChange={(e) => setTaskForm({ ...taskForm, assigned_to_id: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none"
-                  >
-                    <option value="">Select Employee...</option>
-                    {users.map(u => (
-                      <option key={u.id} value={u.id}>{u.username}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              {/* Assign To Employee */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Assign To Employee</label>
+                <select
+                  value={taskForm.assigned_to_id}
+                  onChange={(e) => setTaskForm({ ...taskForm, assigned_to_id: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none text-black bg-white"
+                  style={{ color: "#000", backgroundColor: "#fff" }}
+                >
+                  <option value="" style={{ color: "#000", backgroundColor: "#fff" }}>Assign to Myself / Select Employee...</option>
+                  {users.map(u => (
+                    <option key={u.id} value={u.id} style={{ color: "#000", backgroundColor: "#fff" }}>
+                      {u.username || u.name || `Employee #${u.id}`} {u.email ? `(${u.email})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            {/* Status */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">
+                Status
+              </label>
+
+              <select
+                value={taskForm.status_id}
+                onChange={(e) => setTaskForm({
+                  ...taskForm,
+                  status_id: Number(e.target.value)
+                })}
+                className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-black"
+              >
+
+                <option value="1">Pending</option>
+                <option value="2">In Progress</option>
+                <option value="3">Completed</option>
+                <option value="4">On Hold</option>
+
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">
+                Priority
+              </label>
+
+              <select
+                value={taskForm.priority_id}
+                onChange={(e) => setTaskForm({
+                  ...taskForm,
+                  priority_id: Number(e.target.value)
+                })}
+                className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-black"
+              >
+
+                <option value="1">High</option>
+                <option value="2">Medium</option>
+                <option value="3">Low</option>
+
+              </select>
             </div>
 
             {/* Reset / Submit Actions */}

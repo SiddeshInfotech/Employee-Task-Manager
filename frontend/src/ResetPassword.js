@@ -77,7 +77,7 @@ function ResetPassword() {
       {/* Main Container Split */}
       <main className="flex-1 max-w-5xl mx-auto w-full px-6 py-12 flex flex-col justify-center items-center">
         <div className="w-full max-w-4xl bg-white text-slate-800 rounded-3xl shadow-2xl border border-white/20 overflow-hidden flex flex-col md:flex-row min-h-[520px]">
-          
+
           {/* Left Panel */}
           <div className="flex-1 bg-slate-50 p-8 flex flex-col items-center justify-center text-center border-r border-slate-100 relative">
             <Link to="/login" className="absolute top-6 left-6 text-xs text-slate-500 hover:text-slate-800 font-bold flex items-center gap-1 no-underline">
@@ -100,7 +100,7 @@ function ResetPassword() {
 
           {/* Right Panel Form */}
           <div className="flex-1 p-8 flex flex-col justify-center">
-            
+
             {/* Progress indicators */}
             <div className="flex items-center justify-between mb-8 px-4">
               <div className="flex flex-col items-center gap-1.5">

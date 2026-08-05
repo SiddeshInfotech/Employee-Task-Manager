@@ -1,0 +1,461 @@
+/* =========================================================
+   Dashboard — 3D Animations & Enhanced Visuals
+   No UI layout changes — animation layer only
+   ========================================================= */
+
+/* ── Keyframes ──────────────────────────────────────────── */
+
+@keyframes dbSlideDown3D {
+  from {
+    opacity: 0;
+    transform: perspective(800px) rotateX(-14deg) translateY(-30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: perspective(800px) rotateX(0deg) translateY(0);
+  }
+}
+
+@keyframes dbSlideUp3D {
+  from {
+    opacity: 0;
+    transform: perspective(800px) rotateX(14deg) translateY(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: perspective(800px) rotateX(0deg) translateY(0);
+  }
+}
+
+@keyframes dbScaleIn3D {
+  from {
+    opacity: 0;
+    transform: perspective(600px) scale(0.88) rotateX(8deg);
+  }
+
+  to {
+    opacity: 1;
+    transform: perspective(600px) scale(1) rotateX(0deg);
+  }
+}
+
+@keyframes dbSlideLeft3D {
+  from {
+    opacity: 0;
+    transform: perspective(600px) rotateY(20deg) translateX(-30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: perspective(600px) rotateY(0deg) translateX(0);
+  }
+}
+
+@keyframes dbCardFloat {
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes dbStatCountUp {
+  from {
+    opacity: 0;
+    transform: scale(0.5) translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes dbSidebarSlide {
+  from {
+    opacity: 0;
+    transform: perspective(600px) rotateY(-18deg) translateX(-40px);
+  }
+
+  to {
+    opacity: 1;
+    transform: perspective(600px) rotateY(0deg) translateX(0);
+  }
+}
+
+@keyframes dbNavItemSlide {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes dbHeaderSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes dbGlowPulse {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0);
+  }
+
+  50% {
+    box-shadow: 0 0 20px 4px rgba(37, 99, 235, 0.3);
+  }
+}
+
+@keyframes dbShimmer {
+  0% {
+    background-position: -200% center;
+  }
+
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes dbModalIn {
+  from {
+    opacity: 0;
+    transform: perspective(800px) scale(0.88) rotateX(10deg) translateY(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: perspective(800px) scale(1) rotateX(0deg) translateY(0);
+  }
+}
+
+@keyframes dbOverlayIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dbActivityIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes dbChartWrapperIn {
+  from {
+    opacity: 0;
+    transform: perspective(700px) rotateX(10deg) scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: perspective(700px) rotateX(0deg) scale(1);
+  }
+}
+
+@keyframes dbBtnPop {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+
+  70% {
+    transform: scale(1.04);
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes dbDotPulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.6);
+    opacity: 0.6;
+  }
+}
+
+/* ── Sidebar ─────────────────────────────────────────────── */
+
+.db-sidebar {
+  animation: dbSidebarSlide 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-style: preserve-3d;
+}
+
+.db-nav-item {
+  transition: background-color 0.2s ease,
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+  transform-style: preserve-3d;
+}
+
+.db-nav-item:hover {
+  transform: perspective(400px) rotateY(-4deg) translateX(4px);
+  box-shadow: 4px 0 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Stagger nav items */
+.db-nav-item:nth-child(1) {
+  animation: dbNavItemSlide 0.4s ease 0.10s both;
+}
+
+.db-nav-item:nth-child(2) {
+  animation: dbNavItemSlide 0.4s ease 0.16s both;
+}
+
+.db-nav-item:nth-child(3) {
+  animation: dbNavItemSlide 0.4s ease 0.22s both;
+}
+
+.db-nav-item:nth-child(4) {
+  animation: dbNavItemSlide 0.4s ease 0.28s both;
+}
+
+.db-nav-item:nth-child(5) {
+  animation: dbNavItemSlide 0.4s ease 0.34s both;
+}
+
+/* ── Header ──────────────────────────────────────────────── */
+
+.db-header {
+  animation: dbHeaderSlide 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
+}
+
+.db-header-btn {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  transform-style: preserve-3d;
+}
+
+.db-header-btn:hover {
+  transform: perspective(300px) rotateX(-5deg) translateY(-2px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+
+.db-notification-dot {
+  animation: dbDotPulse 2s ease-in-out infinite;
+}
+
+/* ── Stat Cards ──────────────────────────────────────────── */
+
+.db-stat-card {
+  animation: dbScaleIn3D 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.3s ease;
+  transform-style: preserve-3d;
+  cursor: default;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Shimmer overlay */
+.db-stat-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg,
+      transparent 30%,
+      rgba(255, 255, 255, 0.12) 50%,
+      transparent 70%);
+  background-size: 200% 100%;
+  animation: dbShimmer 3.5s linear infinite;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.db-stat-card:hover {
+  transform: perspective(600px) rotateX(-6deg) rotateY(3deg) translateY(-6px) scale(1.03);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+/* Stagger delays for 4 cards */
+.db-stat-card:nth-child(1) {
+  animation-delay: 0.05s;
+}
+
+.db-stat-card:nth-child(2) {
+  animation-delay: 0.12s;
+}
+
+.db-stat-card:nth-child(3) {
+  animation-delay: 0.19s;
+}
+
+.db-stat-card:nth-child(4) {
+  animation-delay: 0.26s;
+}
+
+.db-stat-number {
+  animation: dbStatCountUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.35s both;
+  display: inline-block;
+}
+
+/* ── Chart Panels ────────────────────────────────────────── */
+
+.db-chart-panel {
+  animation: dbChartWrapperIn 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transform-style: preserve-3d;
+}
+
+.db-chart-panel:hover {
+  transform: perspective(800px) rotateX(-2deg) translateY(-3px);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.db-chart-panel:nth-child(1) {
+  animation-delay: 0.20s;
+}
+
+.db-chart-panel:nth-child(2) {
+  animation-delay: 0.28s;
+}
+
+.db-chart-panel:nth-child(3) {
+  animation-delay: 0.36s;
+}
+
+.db-chart-panel:nth-child(4) {
+  animation-delay: 0.44s;
+}
+
+.db-chart-panel:nth-child(5) {
+  animation-delay: 0.52s;
+}
+
+/* ── Activity & Deadline Panels ─────────────────────────── */
+
+.db-activity-panel {
+  animation: dbSlideLeft3D 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.db-activity-panel:hover {
+  transform: perspective(700px) rotateY(-2deg) translateY(-3px);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.25);
+}
+
+.db-activity-item {
+  transition: background-color 0.2s ease, transform 0.2s ease, padding-left 0.2s ease;
+}
+
+.db-activity-item:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+  transform: translateX(4px);
+  padding-left: 4px;
+}
+
+/* Stagger activity items */
+.db-activity-item:nth-child(1) {
+  animation: dbActivityIn 0.4s ease 0.35s both;
+}
+
+.db-activity-item:nth-child(2) {
+  animation: dbActivityIn 0.4s ease 0.42s both;
+}
+
+.db-activity-item:nth-child(3) {
+  animation: dbActivityIn 0.4s ease 0.49s both;
+}
+
+/* ── Quick Navigation Panel ──────────────────────────────── */
+
+.db-quick-nav-panel {
+  animation: dbScaleIn3D 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.4s both;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.db-quick-nav-panel:hover {
+  transform: perspective(600px) rotateX(-2deg) translateY(-3px);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.25);
+}
+
+.db-quick-link {
+  transition: transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    background-color 0.2s ease;
+  transform-style: preserve-3d;
+}
+
+.db-quick-link:hover {
+  transform: perspective(400px) rotateX(-4deg) translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+}
+
+/* ── Action Buttons ──────────────────────────────────────── */
+
+.db-action-btn {
+  animation: dbBtnPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.25s ease;
+  transform-style: preserve-3d;
+}
+
+.db-action-btn:hover {
+  transform: perspective(400px) rotateX(-6deg) translateY(-3px) scale(1.04);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+}
+
+.db-action-btn:nth-child(1) {
+  animation-delay: 0.30s;
+}
+
+.db-action-btn:nth-child(2) {
+  animation-delay: 0.38s;
+}
+
+.db-action-btn:nth-child(3) {
+  animation-delay: 0.46s;
+}
+
+/* ── Modal ───────────────────────────────────────────────── */
+
+.db-modal-overlay {
+  animation: dbOverlayIn 0.25s ease both;
+}
+
+.db-modal-box {
+  animation: dbModalIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── Footer ─────────────────────────────────────────────── */
+
+.db-footer {
+  animation: dbSlideUp3D 0.5s ease 0.5s both;
+}

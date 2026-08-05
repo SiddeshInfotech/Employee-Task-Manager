@@ -12,12 +12,14 @@ try:
         connect_args = {"check_same_thread": False}
         engine = create_engine(database_url, connect_args=connect_args)
     else:
+        connect_args = {"connect_timeout": 5}
         engine = create_engine(
             database_url,
             connect_args=connect_args,
             pool_size=5,
             max_overflow=10,
             pool_recycle=3600,
+            pool_pre_ping=True,
         )
     # Test the database connection on startup
     with engine.connect() as conn:

@@ -12,48 +12,135 @@ const initialNotifications = [
 ];
 
 function NotificationsPage() {
-  const [notifications, setNotifications] = useState(initialNotifications);
+  const [notifications, setNotifications] = useState([]);
+
+  const username = (localStorage.getItem('username') || '').toLowerCase();
+  const userId = localStorage.getItem('userId') || localStorage.getItem('user_id') || localStorage.getItem('employee_id');
+  const role = (localStorage.getItem('role') || 'employee').toLowerCase();
+
+  const isNotifForCurrentUser = (n) => {
+    if (role === 'admin') return true;
+    const empIdStr = n.employee_id !== undefined && n.employee_id !== null ? String(n.employee_id) : (n.user_id !== undefined && n.user_id !== null ? String(n.user_id) : '');
+    const recipient = (n.recipient || n.username || n.employee_name || n.target_user || '').toLowerCase();
+    const messageStr = (n.description || n.message || n.title || '').toLowerCase();
+
+    if (userId && empIdStr !== '' && empIdStr === String(userId)) return true;
+    if (username && recipient.length > 0 && (recipient.includes(username) || username.includes(recipient))) return true;
+    if (username && messageStr.includes(username)) return true;
+    if (!empIdStr && !recipient) return true;
+    return false;
+  };
+
+  const isNotifDeleted = (notif, deletedSet) => {
+    const idStr = String(notif.id || notif.notification_id || '');
+    return idStr && deletedSet.has(idStr);
+  };
 
   const fetchNotifications = async () => {
+    const deletedSet = new Set(JSON.parse(localStorage.getItem('deletedNotificationIds') || '[]').map(String));
+    const localNotifs = JSON.parse(localStorage.getItem('myNotifications') || '[]');
+
+    let fetched = [];
+
     try {
       const res = await api.get('/notifications/');
       if (res.data && Array.isArray(res.data) && res.data.length > 0) {
-        const mapped = res.data.map((n, idx) => ({
-          id: n.notification_id || idx + 1,
-          title: 'System Alert',
-          description: n.message || 'Notification received',
+        fetched = res.data.map((n, idx) => ({
+          id: n.notification_id || n.id || idx + 100,
+          employee_id: n.employee_id || n.user_id,
+          recipient: n.recipient || n.employee_name,
+          title: n.title || 'Task Deadline Reminder',
+          description: n.message || n.description || 'Notification received',
           is_read: false
         }));
-        setNotifications(mapped);
       }
     } catch (err) {
-      console.error('Error fetching notifications, using defaults.', err);
+      console.warn('API unavailable or empty notifications:', err);
     }
+
+    const seen = new Set();
+    const combined = [];
+
+    [...localNotifs, ...fetched].forEach(n => {
+      const idKey = String(n.id || n.notification_id || `${n.title}_${n.description}`);
+      if (!seen.has(idKey)) {
+        seen.add(idKey);
+        combined.push(n);
+      }
+    });
+
+    if (combined.length === 0 && localStorage.getItem('allNotificationsCleared') !== 'true') {
+      combined.push(...initialNotifications);
+    }
+
+    const filtered = combined.filter(n => !isNotifDeleted(n, deletedSet) && isNotifForCurrentUser(n));
+    setNotifications(filtered);
   };
 
   useEffect(() => {
     fetchNotifications();
   }, []);
 
-  const handleMarkAsRead = (id) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
+  const markDeletedInStorage = (items) => {
+    const deleted = JSON.parse(localStorage.getItem('deletedNotificationIds') || '[]');
+    items.forEach(n => {
+      const idStr = String(n.id || n.notification_id || '');
+      const keyStr = `${n.title || ''}_${n.description || n.message || ''}`;
+      if (idStr && !deleted.includes(idStr)) deleted.push(idStr);
+      if (keyStr && !deleted.includes(keyStr)) deleted.push(keyStr);
+    });
+    localStorage.setItem('deletedNotificationIds', JSON.stringify(deleted));
+  };
+
+  const handleMarkAsRead = async (id) => {
+    const target = notifications.find(n => String(n.id) === String(id));
+    if (target) markDeletedInStorage([target]);
+    setNotifications(prev => prev.filter(n => String(n.id) !== String(id)));
+    try {
+      await api.delete(`/notifications/${id}`);
+    } catch (err) {
+      console.warn('API delete notification failed:', err);
+    }
     showToast('Notification marked as read');
   };
 
-  const handleDelete = (id) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
+  const handleDelete = async (id) => {
+    const target = notifications.find(n => String(n.id) === String(id));
+    if (target) markDeletedInStorage([target]);
+    setNotifications(prev => prev.filter(n => String(n.id) !== String(id)));
+    try {
+      await api.delete(`/notifications/${id}`);
+    } catch (err) {
+      console.warn('API delete notification failed:', err);
+    }
     showToast('Notification deleted');
   };
 
-  const handleMarkAllRead = () => {
+  const handleMarkAllRead = async () => {
+    markDeletedInStorage(notifications);
+    localStorage.setItem('allNotificationsCleared', 'true');
     setNotifications([]);
+    try {
+      await api.delete('/notifications/');
+    } catch (err) {
+      console.warn('API delete all notifications failed:', err);
+    }
     showToast('All notifications marked as read');
   };
 
-  const handleDeleteAll = () => {
+  const handleDeleteAll = async () => {
+    markDeletedInStorage(notifications);
+    localStorage.setItem('allNotificationsCleared', 'true');
     setNotifications([]);
+    try {
+      await api.delete('/notifications/');
+    } catch (err) {
+      console.warn('API delete all notifications failed:', err);
+    }
     showToast('All notifications cleared');
   };
+
+
 
   return (
     <div className="min-h-screen text-slate-100 flex flex-col font-sans bg-transparent">
@@ -62,7 +149,7 @@ function NotificationsPage() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12 flex flex-col gap-6">
-        
+
         {/* Header toolbar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#0f172a]/60 border border-slate-800 p-6 rounded-2xl backdrop-blur-md shadow-xl w-full">
           <div>

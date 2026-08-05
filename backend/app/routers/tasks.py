@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List
 
 from app import crud, schemas, auth, database, models
+from app.email_utils import send_email
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
 
@@ -14,13 +15,30 @@ router = APIRouter(prefix="/tasks", tags=["Tasks"])
 )
 def create_task(
     task_in: schemas.TaskCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(auth.get_current_active_user)
 ):
-    return crud.create_task(
+
+    db_task = crud.create_task(
         db=db,
         task_in=task_in
     )
+
+    # Send task assignment email to the assigned employee
+    if task_in.employee_id:
+        employee = db.query(models.Employee).filter(
+            models.Employee.employee_id == task_in.employee_id
+        ).first()
+        if employee and employee.email:
+            background_tasks.add_task(
+                send_email,
+                employee.email,
+                f"New Task Assigned: {task_in.task_title}",
+                f"Hello {employee.first_name},\n\nA new task has been assigned to you:\n\nTitle: {task_in.task_title}\nDescription: {task_in.task_description or 'N/A'}\nDue Date: {task_in.due_date or 'N/A'}\n\nPlease log in to the Employee Task Tracker to view it.\n\nBest,\nTeam"
+            )
+
+    return db_task
 
 
 @router.get("/", response_model=List[schemas.TaskOut])

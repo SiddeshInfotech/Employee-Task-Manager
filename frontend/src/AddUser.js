@@ -41,16 +41,16 @@ function AddUser() {
 
     setLoading(true);
     const newUser = {
-  id: Date.now(),
-  username: form.username,
-  name: form.fullName,
-  email: form.email,
-  role: form.role,
-  department: form.department,
-  mobile: form.mobile,
-  skills: form.skills,
-  avatar: avatarPreview
-};
+      id: Date.now(),
+      username: form.username,
+      name: form.fullName,
+      email: form.email,
+      role: form.role,
+      department: form.department,
+      mobile: form.mobile,
+      skills: form.skills,
+      avatar: avatarPreview
+    };
     try {
       // POST /auth/register
       await api.post('/auth/register', {
@@ -61,26 +61,26 @@ function AddUser() {
         department: form.department
       });
       const old = JSON.parse(
-  localStorage.getItem("myNewUsers") || "[]"
-);
+        localStorage.getItem("myNewUsers") || "[]"
+      );
 
-localStorage.setItem(
-  "myNewUsers",
-  JSON.stringify([...old, newUser])
-);
+      localStorage.setItem(
+        "myNewUsers",
+        JSON.stringify([...old, newUser])
+      );
 
       showToast('Member added successfully!');
       navigate('/manage-users');
     } catch (err) {
       console.error(err);
       const old = JSON.parse(
-  localStorage.getItem("myNewMembers") || "[]"
-);
+        localStorage.getItem("myNewMembers") || "[]"
+      );
 
-localStorage.setItem(
-  "myNewMembers",
-  JSON.stringify([...old, newUser])
-);
+      localStorage.setItem(
+        "myNewMembers",
+        JSON.stringify([...old, newUser])
+      );
       // Fallback
       showToast('Member added successfully!');
       navigate('/manage-users');
@@ -96,7 +96,7 @@ localStorage.setItem(
 
       {/* Main Container */}
       <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12 flex flex-col gap-6">
-        
+
         {/* Header Toolbar */}
         <div className="flex items-center justify-between bg-[#0f172a]/60 border border-slate-800 p-5 rounded-2xl backdrop-blur-md shadow-xl w-full">
           <button
@@ -109,7 +109,7 @@ localStorage.setItem(
 
         {/* Add Member Form Card */}
         <div className="bg-white text-slate-800 rounded-3xl shadow-2xl border border-white/20 p-8 flex flex-col items-center">
-          
+
           <div className="text-center mb-6">
             <h3 className="text-2xl font-bold text-slate-900">Add New Team Member</h3>
             <p className="text-xs text-slate-500 mt-1">Fill the details below to add a new member</p>

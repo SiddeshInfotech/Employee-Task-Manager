@@ -45,3 +45,22 @@ def create_notification(
         employee_id=employee_id,
         message=message
     )
+
+
+@router.delete("/{notification_id}")
+def delete_notification(
+    notification_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_active_user)
+):
+    crud.delete_notification(db, notification_id)
+    return {"message": "Notification deleted"}
+
+
+@router.delete("/")
+def delete_all_notifications(
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_active_user)
+):
+    crud.delete_all_notifications(db, current_user.employee_id, current_user.role)
+    return {"message": "All notifications deleted"}

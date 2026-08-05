@@ -31,21 +31,20 @@ const WildcardRedirect = () => {
 
 function App() {
 
-  const [theme, setTheme] = useState("Light");
+  const [theme, setTheme] = useState("Original");
 
   useEffect(() => {
     const savedSettings = localStorage.getItem("appSettings");
+    const currentTheme = savedSettings ? (JSON.parse(savedSettings).theme || "Original") : "Original";
+    setTheme(currentTheme);
 
-    if (savedSettings) {
-      const settings = JSON.parse(savedSettings);
-      setTheme(settings.theme);
-
-      if (settings.theme === "Dark") {
-        document.documentElement.classList.add("dark");
-      }
-      else {
-        document.documentElement.classList.remove("dark");
-      }
+    document.documentElement.classList.remove("dark", "light", "original");
+    if (currentTheme === "Dark" || currentTheme === "Glass") {
+      document.documentElement.classList.add("dark");
+    } else if (currentTheme === "Light") {
+      document.documentElement.classList.add("light");
+    } else {
+      document.documentElement.classList.add("original");
     }
   }, []);
   return (

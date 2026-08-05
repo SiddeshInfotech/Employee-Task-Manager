@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, Trash2, Eye } from 'lucide-react';
+import { Search, Plus, Trash2, Eye, Pencil } from 'lucide-react';
 import Navbar from './Navbar';
 import api, { showToast } from './axios';
 import { useTranslation } from 'react-i18next';
@@ -14,41 +14,116 @@ function MyTask() {
   const [priorityFilter, setPriorityFilter] = useState('All');
   const [sortByDueDate, setSortByDueDate] = useState(false);
 
-  const role = localStorage.getItem('role') || 'employee';
+  const role = (localStorage.getItem('role') || 'employee').toLowerCase();
+  const username = (localStorage.getItem('username') || '').toLowerCase();
+  const userId = localStorage.getItem('userId') || localStorage.getItem('user_id') || localStorage.getItem('employee_id');
+
+  const mapTask = (t) => {
+    const statusReverseMap = { 1: 'Pending', 2: 'In Progress', 3: 'Completed', 4: 'On Hold' };
+    const sid = (t.status_id !== undefined && t.status_id !== null) ? Number(t.status_id) : null;
+    let statusDisplay = 'Pending';
+    if (sid !== null && !isNaN(sid) && statusReverseMap[sid]) {
+      statusDisplay = statusReverseMap[sid];
+    } else if (t.status) {
+      const raw = String(t.status).toLowerCase().trim().replace(/[\s\-_]+/g, '');
+      if (raw === '4' || raw === 'onhold' || raw === 'hold') statusDisplay = 'On Hold';
+      else if (raw === '3' || raw === 'completed' || raw === 'done') statusDisplay = 'Completed';
+      else if (raw === '2' || raw === 'inprogress' || raw === 'progress') statusDisplay = 'In Progress';
+      else if (raw === '1' || raw === 'pending') statusDisplay = 'Pending';
+      else statusDisplay = String(t.status).charAt(0).toUpperCase() + String(t.status).slice(1);
+    }
+
+    const priorityStr = typeof t.priority === 'string'
+      ? t.priority
+      : (t.priority_id === 1 ? 'High' : t.priority_id === 2 ? 'Medium' : 'Low');
+
+    const priorityDisplay = priorityStr.charAt(0).toUpperCase() + priorityStr.slice(1);
+
+
+    // Calculate progress according to priority
+    const pLower = priorityStr.toLowerCase();
+    let progressVal = 20;
+    if (pLower === 'high' || t.priority_id === 1) {
+      progressVal = 90;
+    } else if (pLower === 'medium' || t.priority_id === 2) {
+      progressVal = 50;
+    } else if (pLower === 'low' || t.priority_id === 3) {
+      progressVal = 20;
+    }
+
+    if (statusDisplay.toLowerCase() === 'completed' || t.status_id === 3) {
+      progressVal = 100;
+    }
+
+
+    return {
+      id: t.task_id || t.id,
+      task: t.task_title || t.title || t.task || 'Untitled Task',
+      due: t.due_date ? new Date(t.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No Due Date',
+      status: statusDisplay,
+      priority: priorityDisplay,
+      progress: progressVal,
+      assignee: t.assigned_to || t.assignee || (t.employee_id ? `Employee #${t.employee_id}` : 'Unassigned')
+    };
+  };
+
+
+  const isTaskForCurrentUser = (t) => {
+    if (role === 'admin') return true;
+    
+    const empIdStr = t.employee_id !== undefined && t.employee_id !== null ? String(t.employee_id) : '';
+    const currentEmpId = localStorage.getItem('employee_id');
+    const currentUserId = localStorage.getItem('userId') || localStorage.getItem('user_id');
+
+    if (currentEmpId && empIdStr !== '') {
+      if (empIdStr === String(currentEmpId)) return true;
+    }
+
+    if (currentUserId) {
+      if (empIdStr !== '' && empIdStr === String(currentUserId)) return true;
+      const tUserId = t.user_id !== undefined && t.user_id !== null ? String(t.user_id) : '';
+      if (tUserId !== '' && tUserId === String(currentUserId)) return true;
+    }
+    
+    const assignedToStr = (t.assigned_to || t.assignee || t.employee_name || '').toLowerCase();
+    if (username && assignedToStr.length > 0) {
+      return assignedToStr.includes(username) || username.includes(assignedToStr);
+    }
+    
+    return false;
+  };
 
   const fetchTasks = async () => {
+    const localTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
+
     try {
       const res = await api.get('/tasks/?skip=0&limit=100');
       if (res.data) {
-        const mapped = res.data.map(t => {
-          const statusStr = typeof t.status === 'string'
-            ? t.status
-            : (t.status_id === 3 ? 'completed' : t.status_id === 2 ? 'in_progress' : 'pending');
+        let taskData = res.data;
 
-          const priorityStr = typeof t.priority === 'string'
-            ? t.priority
-            : (t.priority_id === 1 ? 'High' : t.priority_id === 2 ? 'Medium' : 'Low');
+        if (role !== 'admin') {
+          taskData = taskData.filter(isTaskForCurrentUser);
+        }
 
-          const statusDisplay = statusStr === 'in_progress' ? 'In Progress' : statusStr.charAt(0).toUpperCase() + statusStr.slice(1);
-          const priorityDisplay = priorityStr.charAt(0).toUpperCase() + priorityStr.slice(1);
-          const progressVal = statusStr === 'completed' ? 100 : statusStr === 'in_progress' ? 60 : 20;
-
-          return {
-            id: t.task_id || t.id,
-            task: t.task_title || t.title || 'Untitled Task',
-            due: t.due_date ? new Date(t.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : t("noDueDate"),
-            status: statusDisplay,
-            priority: priorityDisplay,
-            progress: progressVal,
-            assignee: t.employee_id ? `Employee #${t.employee_id}` : (t.assigned_to || 'Unassigned')
-          };
+        // Merge local tasks (avoid duplicates by id and title)
+        const apiIds = new Set(taskData.map(t => String(t.task_id || t.id)));
+        const apiTitles = new Set(taskData.map(t => String(t.task_title || t.title || t.task || t.name || '').toLowerCase().trim()));
+        
+        const filteredLocal = localTasks.filter(lt => {
+          const hasId = apiIds.has(String(lt.id || lt.task_id));
+          const hasTitle = apiTitles.has(String(lt.task_title || lt.title || lt.task || lt.name || '').toLowerCase().trim());
+          if (hasId || hasTitle) return false;
+          return isTaskForCurrentUser(lt);
         });
-        setTasks(mapped);
+
+        const merged = [...taskData, ...filteredLocal];
+        setTasks(merged.map(mapTask));
       }
 
     } catch (err) {
-      console.error(err);
-      showToast("Failed to fetch tasks", "error");
+      console.warn("API unavailable, loading from localStorage:", err);
+      const filteredLocal = localTasks.filter(isTaskForCurrentUser);
+      setTasks(filteredLocal.map(mapTask));
     }
   };
 
@@ -61,14 +136,36 @@ function MyTask() {
       showToast(t("adminDeleteOnly"), 'error');
       return;
     }
+
+    // Find task title so we can remove by title too (handles mismatched IDs)
+    const deletedTask = tasks.find(t => String(t.id) === String(id));
+    const deletedTitle = (deletedTask?.task || '').toLowerCase().trim();
+
+    // Remove from all localStorage keys by both ID and title
+    const removeFromCache = (key) => {
+      const cached = JSON.parse(localStorage.getItem(key) || '[]');
+      const updated = cached.filter(lt => {
+        const ltId = String(lt.id || lt.task_id);
+        const ltTitle = String(lt.task_title || lt.title || lt.task || lt.name || '').toLowerCase().trim();
+        if (ltId === String(id)) return false;
+        if (deletedTitle && ltTitle === deletedTitle) return false;
+        return true;
+      });
+      localStorage.setItem(key, JSON.stringify(updated));
+    };
+    removeFromCache('myNewTasks');
+    removeFromCache('myTasks');
+    removeFromCache('tasks');
+
+    // Attempt API delete silently (don't block on failure)
     try {
       await api.delete(`/tasks/${id}`);
-      showToast('Task deleted successfully');
-      fetchTasks();
     } catch (err) {
-      console.error(err);
-      showToast("Failed to delete task", "error");
+      console.warn("API delete failed (task may be local-only):", err);
     }
+
+    showToast('Task deleted successfully');
+    fetchTasks();
   };
 
   const getStatusStyle = (status) => {
@@ -255,13 +352,22 @@ function MyTask() {
                           </button>
 
                           {role === 'admin' && (
-                            <button
-                              onClick={() => handleDeleteTask(task.id)}
-                              className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition-all"
-                              title={t("deleteTask")}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            <>
+                              <button
+                                onClick={() => navigate(`/tasks/${task.id}`, { state: { edit: true } })}
+                                className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg transition-all"
+                                title="Edit Task"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteTask(task.id)}
+                                className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition-all"
+                                title={t("deleteTask")}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>

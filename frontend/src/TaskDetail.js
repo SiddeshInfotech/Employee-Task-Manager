@@ -1,22 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Edit2, Trash2, Calendar, User, HelpCircle, Layers, CheckCircle } from 'lucide-react';
 import Navbar from './Navbar';
 import api, { showToast } from './axios';
 
-const dummyTasks = [
-  { id: 1, title: 'Design Homepage Layout', dueDate: '2026-07-20T18:00:00Z', assignedTo: 'David Mailer', priority: 'High', status: 'in_progress', description: 'Create the home page design for the client\'s website.' },
-  { id: 2, title: 'Update Client Documents', dueDate: '2026-07-20T18:00:00Z', assignedTo: 'Sarah Wilson', priority: 'Medium', status: 'completed', description: 'Update all client documentation.' },
-  { id: 3, title: 'Prepare Weekly Report', dueDate: '2026-07-20T18:00:00Z', assignedTo: 'Ritik Verma', priority: 'Low', status: 'pending', description: 'Compile weekly progress report.' },
-];
+
 
 function TaskDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [task, setTask] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
-  
+  const [editing, setEditing] = useState(location.state?.edit || false);
+
   // Form states
   const [editForm, setEditForm] = useState({
     title: '',
@@ -53,55 +50,96 @@ function TaskDetail() {
         });
       }
     } catch (err) {
-      console.error('Failed to load task details from API, using dummy fallback.', err);
-      const found = dummyTasks.find(t => t.id === parseInt(id));
-      if (found) {
-        setTask(found);
+      console.warn('API unavailable, checking localStorage for task.', err);
+
+      // Search localStorage tasks first (for locally-created tasks)
+      const localTasks = [
+        ...JSON.parse(localStorage.getItem('myNewTasks') || '[]'),
+        ...JSON.parse(localStorage.getItem('myTasks') || '[]')
+      ];
+
+      const foundLocal = localTasks.find(t => String(t.id || t.task_id) === String(id));
+      if (foundLocal) {
+        const statusReverseMap = { 1: 'pending', 2: 'in_progress', 3: 'completed', 4: 'on_hold' };
+        const priorityReverseMap = { 1: 'high', 2: 'medium', 3: 'low' };
+        const mappedLocal = {
+          ...foundLocal,
+          title: foundLocal.task_title || foundLocal.title || foundLocal.task || 'Untitled Task',
+          description: foundLocal.task_description || foundLocal.description || '',
+          status: typeof foundLocal.status_id === 'number'
+            ? (statusReverseMap[foundLocal.status_id] || 'pending')
+            : (foundLocal.status || 'pending'),
+          priority: typeof foundLocal.priority_id === 'number'
+            ? (priorityReverseMap[foundLocal.priority_id] || 'high')
+            : (String(foundLocal.priority || 'high').toLowerCase()),
+          due_date: foundLocal.due_date || foundLocal.dueDate || '',
+          assigned_to: foundLocal.assigned_to || foundLocal.assignee || foundLocal.employee_name || 'Unassigned'
+        };
+        setTask(mappedLocal);
         setEditForm({
-          title: found.title,
-          description: found.description,
-          status: found.status,
-          priority: found.priority,
-          due_date: found.dueDate.slice(0, 16)
+          title: mappedLocal.title,
+          description: mappedLocal.description,
+          status: mappedLocal.status,
+          priority: mappedLocal.priority,
+          due_date: mappedLocal.due_date ? String(mappedLocal.due_date).slice(0, 10) : ''
         });
+        setLoading(false);
+        return;
       }
+
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    if (location.state?.edit) {
+      setEditing(true);
+    }
     fetchTaskDetails();
-  }, [id]);
+  }, [id, location.state]);
 
   const handleUpdate = async (e) => {
     e.preventDefault();
     const statusMap = { pending: 1, in_progress: 2, completed: 3, on_hold: 4 };
     const priorityMap = { high: 1, medium: 2, low: 3 };
+    const isAdmin = role.toLowerCase() === 'admin';
+
+    // Helper: update task in localStorage by id
+    const updateLocalTask = (updatedFields) => {
+      const localTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
+      const idx = localTasks.findIndex(t => String(t.id || t.task_id) === String(id));
+      if (idx !== -1) {
+        localTasks[idx] = { ...localTasks[idx], ...updatedFields };
+        localStorage.setItem('myNewTasks', JSON.stringify(localTasks));
+      }
+    };
+
+    const statusUpdate = { status_id: statusMap[editForm.status] || 1, status: editForm.status };
+    const fullUpdate = {
+      task_title: editForm.title,
+      task_description: editForm.description,
+      status_id: statusMap[editForm.status] || 1,
+      status: editForm.status,
+      priority_id: priorityMap[editForm.priority] || 1,
+      priority: editForm.priority,
+      due_date: editForm.due_date ? editForm.due_date.split('T')[0] : null
+    };
 
     try {
-      if (role !== 'admin') {
-        const statusOnlyUpdate = { status_id: statusMap[editForm.status] || 1 };
-        await api.put(`/tasks/${id}`, statusOnlyUpdate);
-        showToast('Status updated successfully');
+      if (!isAdmin) {
+        await api.put(`/tasks/${id}`, statusUpdate);
       } else {
-        const formattedDueDate = editForm.due_date ? editForm.due_date.split('T')[0] : null;
-        await api.put(`/tasks/${id}`, {
-          task_title: editForm.title,
-          task_description: editForm.description,
-          status_id: statusMap[editForm.status] || 1,
-          priority_id: priorityMap[editForm.priority] || 1,
-          due_date: formattedDueDate
-        });
-        showToast('Task updated successfully');
+        await api.put(`/tasks/${id}`, fullUpdate);
       }
-      setEditing(false);
-      fetchTaskDetails();
     } catch (err) {
-      console.error(err);
-      showToast('Failed to update task', 'error');
-      setEditing(false);
+      console.warn('API update failed, saving to localStorage only.', err);
+      // Save to localStorage as fallback
+      updateLocalTask(isAdmin ? fullUpdate : statusUpdate);
     }
+
+    setEditing(false);
+    fetchTaskDetails();
   };
 
   const handleDelete = async () => {
@@ -109,17 +147,25 @@ function TaskDetail() {
       showToast('Deletions are only authorized for Admin accounts.', 'error');
       return;
     }
-    if (!window.confirm('Are you sure you want to delete this task?')) return;
+
+    // Always remove from localStorage first (covers local-only tasks)
+    const localTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
+    const updatedLocal = localTasks.filter(lt => String(lt.id || lt.task_id) !== String(id));
+    localStorage.setItem('myNewTasks', JSON.stringify(updatedLocal));
+
+    // Also remove from 'myTasks' and 'tasks' cache keys
+    const myTasksCache = JSON.parse(localStorage.getItem('myTasks') || '[]');
+    localStorage.setItem('myTasks', JSON.stringify(myTasksCache.filter(lt => String(lt.id || lt.task_id) !== String(id))));
+    const allTasksCache = JSON.parse(localStorage.getItem('tasks') || '[]');
+    localStorage.setItem('tasks', JSON.stringify(allTasksCache.filter(lt => String(lt.id || lt.task_id) !== String(id))));
 
     try {
       await api.delete(`/tasks/${id}`);
       showToast('Task deleted successfully');
-      navigate('/my-task');
     } catch (err) {
-      console.error(err);
-      showToast('Failed to delete task');
-      navigate('/my-task');
+      console.warn('API delete failed (task may be local-only):', err);
     }
+    navigate('/my-task');
   };
 
   if (loading) {
@@ -147,7 +193,7 @@ function TaskDetail() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12 flex flex-col gap-6">
-        
+
         {/* Header Toolbar */}
         <div className="flex items-center justify-between bg-[#0f172a]/60 border border-slate-800 p-5 rounded-2xl backdrop-blur-md shadow-xl w-full">
           <button

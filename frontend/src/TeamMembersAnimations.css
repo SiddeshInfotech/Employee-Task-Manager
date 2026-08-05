@@ -1,0 +1,315 @@
+/* =========================================================
+   TeamMembers Page — Animations (UI layout is NOT changed)
+   ========================================================= */
+
+/* ---------- Keyframes ---------- */
+
+@keyframes tmFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes tmSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-22px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tmSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tmScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.93);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes tmRowIn {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes tmAvatarPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.45);
+  }
+
+  70% {
+    box-shadow: 0 0 0 8px rgba(59, 130, 246, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+  }
+}
+
+@keyframes tmStatusPing {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.65;
+  }
+}
+
+@keyframes tmModalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.88) translateY(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes tmOverlayIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* ---------- Page section entrance ---------- */
+
+.tm-header-card {
+  animation: tmSlideDown 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.tm-toolbar {
+  animation: tmSlideUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
+}
+
+.tm-table-wrapper {
+  animation: tmScaleIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.18s both;
+}
+
+/* ---------- Table rows — staggered entrance ---------- */
+
+.tm-table-row {
+  animation: tmRowIn 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: background-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.tm-table-row:hover {
+  transform: translateX(4px);
+  box-shadow: -3px 0 0 0 #3b82f6 inset;
+}
+
+/* Stagger delays for up to 20 rows */
+.tm-table-row:nth-child(1) {
+  animation-delay: 0.22s;
+}
+
+.tm-table-row:nth-child(2) {
+  animation-delay: 0.28s;
+}
+
+.tm-table-row:nth-child(3) {
+  animation-delay: 0.34s;
+}
+
+.tm-table-row:nth-child(4) {
+  animation-delay: 0.40s;
+}
+
+.tm-table-row:nth-child(5) {
+  animation-delay: 0.46s;
+}
+
+.tm-table-row:nth-child(6) {
+  animation-delay: 0.52s;
+}
+
+.tm-table-row:nth-child(7) {
+  animation-delay: 0.58s;
+}
+
+.tm-table-row:nth-child(8) {
+  animation-delay: 0.64s;
+}
+
+.tm-table-row:nth-child(9) {
+  animation-delay: 0.70s;
+}
+
+.tm-table-row:nth-child(10) {
+  animation-delay: 0.76s;
+}
+
+.tm-table-row:nth-child(11) {
+  animation-delay: 0.82s;
+}
+
+.tm-table-row:nth-child(12) {
+  animation-delay: 0.88s;
+}
+
+.tm-table-row:nth-child(13) {
+  animation-delay: 0.90s;
+}
+
+.tm-table-row:nth-child(14) {
+  animation-delay: 0.92s;
+}
+
+.tm-table-row:nth-child(15) {
+  animation-delay: 0.94s;
+}
+
+.tm-table-row:nth-child(16) {
+  animation-delay: 0.96s;
+}
+
+.tm-table-row:nth-child(17) {
+  animation-delay: 0.98s;
+}
+
+.tm-table-row:nth-child(18) {
+  animation-delay: 1.00s;
+}
+
+.tm-table-row:nth-child(19) {
+  animation-delay: 1.02s;
+}
+
+.tm-table-row:nth-child(20) {
+  animation-delay: 1.04s;
+}
+
+/* ---------- Member avatar ---------- */
+
+.tm-avatar {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.tm-table-row:hover .tm-avatar {
+  transform: scale(1.12);
+  animation: tmAvatarPulse 1.2s ease-out;
+}
+
+/* ---------- Status badge ---------- */
+
+.tm-status-badge {
+  animation: tmStatusPing 2.8s ease-in-out infinite;
+  transition: transform 0.2s ease;
+}
+
+.tm-table-row:hover .tm-status-badge {
+  transform: scale(1.08);
+  animation: none;
+}
+
+/* ---------- Action buttons ---------- */
+
+.tm-btn-view {
+  transition: background-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.tm-btn-view:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
+}
+
+.tm-btn-delete {
+  transition: background-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.tm-btn-delete:hover {
+  transform: translateY(-2px) rotate(8deg);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+/* ---------- Toolbar buttons ---------- */
+
+.tm-btn-filter {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tm-btn-filter:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.tm-btn-add-member {
+  transition: transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.tm-btn-add-member:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45);
+}
+
+/* ---------- Search input ---------- */
+
+.tm-search-input {
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.tm-search-input:focus {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+/* ---------- Modal ---------- */
+
+.tm-modal-overlay {
+  animation: tmOverlayIn 0.25s ease both;
+}
+
+.tm-modal-box {
+  animation: tmModalIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ---------- Footer ---------- */
+
+.tm-footer {
+  animation: tmFadeIn 0.6s ease 0.5s both;
+}
