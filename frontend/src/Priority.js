@@ -76,30 +76,16 @@ function Priority() {
   };
 
   const fetchTasks = async () => {
-    const localTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
-
     try {
       const res = await api.get('/tasks/?skip=0&limit=100');
       let apiData = (res.data && res.data.length > 0) ? res.data : [];
-      // Filter API tasks for employees
       if (role !== 'admin') {
         apiData = apiData.filter(isTaskForCurrentUser);
       }
-      const apiIds = new Set(apiData.map(t => String(t.task_id || t.id)));
-      const apiTitles = new Set(apiData.map(t => String(t.task_title || t.title || t.task || t.name || '').toLowerCase().trim()));
-      // Filter local tasks for this user and remove duplicates
-      const extraLocal = localTasks
-        .filter(lt => isTaskForCurrentUser(lt))
-        .filter(lt => {
-          const hasId = apiIds.has(String(lt.id || lt.task_id));
-          const hasTitle = apiTitles.has(String(lt.task_title || lt.title || lt.task || lt.name || '').toLowerCase().trim());
-          return !hasId && !hasTitle;
-        });
-      const merged = [...apiData, ...extraLocal];
-      setTasks(groupByPriority(merged));
+      setTasks(groupByPriority(apiData));
     } catch (err) {
-      console.warn('API unavailable, loading from localStorage:', err);
-      setTasks(groupByPriority(localTasks.filter(isTaskForCurrentUser)));
+      console.warn('API unavailable:', err);
+      setTasks(groupByPriority([]));
     }
   };
 
@@ -136,23 +122,12 @@ function Priority() {
       return updated;
     });
 
-    // Update localStorage
-    const localTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
-    const updatedLocal = localTasks.map(lt => {
-      const ltId = String(lt.id || lt.task_id);
-      const ltName = (lt.task_title || lt.title || lt.task || '').toLowerCase();
-      if (ltId === String(taskId) || (targetTask.name && ltName === targetTask.name.toLowerCase())) {
-        return { ...lt, priority: targetPriority, priority_id: priorityId };
-      }
-      return lt;
-    });
-    localStorage.setItem('myNewTasks', JSON.stringify(updatedLocal));
-
-    // Attempt API update silently
+    // Update API
     try {
       await api.put(`/tasks/${taskId}`, { priority_id: priorityId });
     } catch (err) {
-      console.warn("API update failed (task may be local-only):", err);
+      console.warn('API update failed:', err.response?.data || err.message);
+      showToast('Failed to update priority. Please try again.', 'error');
     }
   };
 

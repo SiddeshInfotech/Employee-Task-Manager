@@ -88,23 +88,7 @@ function Reports() {
         console.warn('API tasks unavailable:', err.message);
       }
 
-      // Merge local-only tasks not already in API results
-      const localTasks = [
-        ...JSON.parse(localStorage.getItem('myNewTasks') || '[]'),
-        ...JSON.parse(localStorage.getItem('myTasks') || '[]')
-      ];
-      const apiTaskIds = new Set(apiTasks.map(t => String(t.task_id || t.id)));
-      const apiTaskTitles = new Set(apiTasks.map(t => String(t.task_title || t.title || t.task || t.name || '').toLowerCase().trim()));
-      const extraLocalTasks = localTasks
-        .filter(lt => {
-          const hasId = apiTaskIds.has(String(lt.id || lt.task_id));
-          const hasTitle = apiTaskTitles.has(String(lt.task_title || lt.title || lt.task || lt.name || '').toLowerCase().trim());
-          return !hasId && !hasTitle;
-        })
-        .filter(lt => isLocalTaskForCurrentUser(lt));
-
-      let allTasks = [...apiTasks, ...extraLocalTasks];
-
+      let allTasks = apiTasks;
       let allUsers = [];
       try {
         const usersRes = await api.get('/users/');

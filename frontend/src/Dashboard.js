@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell, PieChart, Pie } from 'recharts';
-import { Bell, Mail, Search, LogOut, LayoutDashboard, CheckSquare, BarChart3, Users, Settings, Plus, UserPlus, FileText, ArrowRight } from 'lucide-react';
+import { Bell, Mail, Search, LogOut, LayoutDashboard, CheckSquare, BarChart3, Users, Settings, Plus, UserPlus, FileText, ArrowRight, TrendingUp } from 'lucide-react';
 import api, { showToast } from './axios';
 import { useTranslation } from 'react-i18next';
 import './DashboardAnimations.css';
@@ -44,24 +44,9 @@ function Dashboard() {
 
       try {
         // Primary source: /tasks/ is already scoped to the logged-in employee by the backend.
-        // Computing counts from actual task objects avoids status-name JOIN failures in /dashboard/summary.
         const tasksRes = await api.get('/tasks/?skip=0&limit=200');
         if (tasksRes.data && Array.isArray(tasksRes.data)) {
-          const apiTasks = tasksRes.data;
-
-          // Merge localStorage tasks that are NOT already in the API response
-          const localTasks = [
-            ...JSON.parse(localStorage.getItem('myNewTasks') || '[]'),
-            ...JSON.parse(localStorage.getItem('myTasks') || '[]')
-          ];
-          const apiIds = new Set(apiTasks.map(t => String(t.task_id || t.id)));
-          const apiTitles = new Set(apiTasks.map(t => String(t.task_title || t.title || t.task || t.name || '').toLowerCase().trim()));
-          const extraLocal = localTasks.filter(lt => {
-            const hasId = apiIds.has(String(lt.id || lt.task_id));
-            const hasTitle = apiTitles.has(String(lt.task_title || lt.title || lt.task || lt.name || '').toLowerCase().trim());
-            return !hasId && !hasTitle;
-          });
-          const allTasks = [...apiTasks, ...extraLocal];
+          const allTasks = tasksRes.data;
 
           // Fetch unread notification count separately (best-effort)
           let unread = 0;
@@ -78,28 +63,10 @@ function Dashboard() {
             overdue_tasks: allTasks.filter(isOverdue).length,
             unread_notifications: unread
           });
-          return;
         }
       } catch (err) {
-        console.warn('Tasks API unavailable, falling back to localStorage.', err);
+        console.warn('Tasks API unavailable:', err);
       }
-
-      // Full fallback — compute from localStorage only
-      const localTasks = [
-        ...JSON.parse(localStorage.getItem('myNewTasks') || '[]'),
-        ...JSON.parse(localStorage.getItem('myTasks') || '[]')
-      ];
-      if (localTasks.length > 0) {
-        setSummary({
-          total_tasks: localTasks.length,
-          completed_tasks: localTasks.filter(isDone).length,
-          pending_tasks: localTasks.filter(isPending).length,
-          in_progress_tasks: localTasks.filter(isInProgress).length,
-          overdue_tasks: localTasks.filter(isOverdue).length,
-          unread_notifications: 0
-        });
-      }
-      // else keep hardcoded defaults as demo data
     };
 
     const fetchUsers = async () => {
@@ -210,6 +177,13 @@ function Dashboard() {
               </Link>
             )}
 
+            <Link
+              to="/work-progress"
+              className="db-nav-item flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-900/15 text-slate-950 font-semibold transition-all text-sm no-underline"
+            >
+              <TrendingUp className="w-4 h-4 text-slate-900" />
+              Work Progress
+            </Link>
             <Link
               to="/settings"
               className="db-nav-item flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-900/15 text-slate-950 font-semibold transition-all text-sm no-underline"
@@ -477,6 +451,61 @@ function Dashboard() {
                   </div>
                   <span className="text-xs font-bold text-amber-500">{t("due")}: Apr 28</span>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Work Progress Widget ─────────────────────────── */}
+          <div className="db-chart-panel bg-[#0f172a]/40 backdrop-blur-md border border-slate-800 p-5 rounded-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="font-bold text-sm text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-blue-400" />
+                Work Progress
+              </h4>
+              <Link to="/work-progress" className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 font-semibold transition-colors no-underline">
+                View All <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+              {/* Mini donut */}
+              <div className="flex-shrink-0 flex flex-col items-center">
+                {(() => {
+                  const total = summary.total_tasks || 0;
+                  const done = summary.completed_tasks || 0;
+                  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+                  const r = 36, C = 2 * Math.PI * r, offset = C - (pct / 100) * C;
+                  return (
+                    <svg width="90" height="90" viewBox="0 0 90 90">
+                      <circle cx="45" cy="45" r={r} fill="none" stroke="#1e293b" strokeWidth="9"/>
+                      <circle cx="45" cy="45" r={r} fill="none" stroke="url(#dbGrad)" strokeWidth="9"
+                        strokeLinecap="round" strokeDasharray={C} strokeDashoffset={offset}
+                        transform="rotate(-90 45 45)" style={{ transition: 'stroke-dashoffset 0.8s ease' }}/>
+                      <defs>
+                        <linearGradient id="dbGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                          <stop offset="0%" stopColor="#6366f1"/>
+                          <stop offset="100%" stopColor="#3b82f6"/>
+                        </linearGradient>
+                      </defs>
+                      <text x="45" y="41" textAnchor="middle" fill="#f8fafc" fontSize="15" fontWeight="800">{pct}%</text>
+                      <text x="45" y="54" textAnchor="middle" fill="#94a3b8" fontSize="7" fontWeight="600">Done</text>
+                    </svg>
+                  );
+                })()}
+              </div>
+              {/* Stats row */}
+              <div className="flex flex-wrap gap-3 flex-1">
+                {[
+                  { label: 'Total', val: summary.total_tasks || 0, color: '#6366f1' },
+                  { label: 'In Progress', val: summary.in_progress_tasks || 0, color: '#3b82f6' },
+                  { label: 'Completed', val: summary.completed_tasks || 0, color: '#10b981' },
+                  { label: 'Pending', val: summary.pending_tasks || 0, color: '#f59e0b' },
+                ].map((s) => (
+                  <div key={s.label} className="flex-1 min-w-[80px] rounded-xl p-3 text-center"
+                    style={{ background: `${s.color}18`, border: `1px solid ${s.color}40` }}>
+                    <div className="text-lg font-extrabold" style={{ color: s.color }}>{s.val}</div>
+                    <div className="text-[10px] text-slate-400 font-semibold mt-0.5">{s.label}</div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

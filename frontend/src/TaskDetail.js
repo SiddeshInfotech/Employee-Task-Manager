@@ -14,16 +14,33 @@ function TaskDetail() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(location.state?.edit || false);
 
+  const [employees, setEmployees] = useState([]);
+
   // Form states
   const [editForm, setEditForm] = useState({
     title: '',
     description: '',
     status: 'pending',
-    priority: 'high',
-    due_date: ''
+    priority: 'medium',
+    due_date: '',
+    employee_id: ''
   });
 
   const role = localStorage.getItem('role') || 'employee';
+
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const res = await api.get('/employees/');
+        if (res.data && Array.isArray(res.data)) {
+          setEmployees(res.data);
+        }
+      } catch (err) {
+        console.warn('Could not fetch employees list:', err);
+      }
+    };
+    fetchEmployees();
+  }, []);
 
   const fetchTaskDetails = async () => {
     setLoading(true);
@@ -38,7 +55,7 @@ function TaskDetail() {
           title: res.data.task_title || res.data.title || 'Untitled Task',
           description: res.data.task_description || res.data.description || '',
           status: typeof res.data.status_id === 'number' ? (statusReverseMap[res.data.status_id] || 'pending') : (res.data.status || 'pending'),
-          priority: typeof res.data.priority_id === 'number' ? (priorityReverseMap[res.data.priority_id] || 'high') : (res.data.priority || 'high')
+          priority: typeof res.data.priority_id === 'number' ? (priorityReverseMap[res.data.priority_id] || 'medium') : (res.data.priority || 'medium')
         };
         setTask(mappedTask);
         setEditForm({
@@ -46,47 +63,12 @@ function TaskDetail() {
           description: mappedTask.description,
           status: mappedTask.status,
           priority: mappedTask.priority,
-          due_date: res.data.due_date ? String(res.data.due_date).slice(0, 10) : ''
+          due_date: res.data.due_date ? String(res.data.due_date).slice(0, 10) : '',
+          employee_id: res.data.employee_id || ''
         });
       }
     } catch (err) {
-      console.warn('API unavailable, checking localStorage for task.', err);
-
-      // Search localStorage tasks first (for locally-created tasks)
-      const localTasks = [
-        ...JSON.parse(localStorage.getItem('myNewTasks') || '[]'),
-        ...JSON.parse(localStorage.getItem('myTasks') || '[]')
-      ];
-
-      const foundLocal = localTasks.find(t => String(t.id || t.task_id) === String(id));
-      if (foundLocal) {
-        const statusReverseMap = { 1: 'pending', 2: 'in_progress', 3: 'completed', 4: 'on_hold' };
-        const priorityReverseMap = { 1: 'high', 2: 'medium', 3: 'low' };
-        const mappedLocal = {
-          ...foundLocal,
-          title: foundLocal.task_title || foundLocal.title || foundLocal.task || 'Untitled Task',
-          description: foundLocal.task_description || foundLocal.description || '',
-          status: typeof foundLocal.status_id === 'number'
-            ? (statusReverseMap[foundLocal.status_id] || 'pending')
-            : (foundLocal.status || 'pending'),
-          priority: typeof foundLocal.priority_id === 'number'
-            ? (priorityReverseMap[foundLocal.priority_id] || 'high')
-            : (String(foundLocal.priority || 'high').toLowerCase()),
-          due_date: foundLocal.due_date || foundLocal.dueDate || '',
-          assigned_to: foundLocal.assigned_to || foundLocal.assignee || foundLocal.employee_name || 'Unassigned'
-        };
-        setTask(mappedLocal);
-        setEditForm({
-          title: mappedLocal.title,
-          description: mappedLocal.description,
-          status: mappedLocal.status,
-          priority: mappedLocal.priority,
-          due_date: mappedLocal.due_date ? String(mappedLocal.due_date).slice(0, 10) : ''
-        });
-        setLoading(false);
-        return;
-      }
-
+      console.warn('API unavailable:', err.response?.data || err.message);
     } finally {
       setLoading(false);
     }
@@ -105,37 +87,39 @@ function TaskDetail() {
     const priorityMap = { high: 1, medium: 2, low: 3 };
     const isAdmin = role.toLowerCase() === 'admin';
 
-    // Helper: update task in localStorage by id
-    const updateLocalTask = (updatedFields) => {
-      const localTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
-      const idx = localTasks.findIndex(t => String(t.id || t.task_id) === String(id));
-      if (idx !== -1) {
-        localTasks[idx] = { ...localTasks[idx], ...updatedFields };
-        localStorage.setItem('myNewTasks', JSON.stringify(localTasks));
-      }
+    const progressMap = { 1: 0, 2: 50, 3: 100, 4: 0 };
+    const statusId = statusMap[editForm.status] || 1;
+
+    // Employee: can only update status (and progress auto-derives from status)
+    const statusUpdate = {
+      status_id: statusId,
+      progress: progressMap[statusId] ?? 0
     };
 
-    const statusUpdate = { status_id: statusMap[editForm.status] || 1, status: editForm.status };
+    // Admin: full update — fields must match TaskUpdate schema
     const fullUpdate = {
       task_title: editForm.title,
       task_description: editForm.description,
-      status_id: statusMap[editForm.status] || 1,
-      status: editForm.status,
-      priority_id: priorityMap[editForm.priority] || 1,
-      priority: editForm.priority,
-      due_date: editForm.due_date ? editForm.due_date.split('T')[0] : null
+      status_id: statusId,
+      priority_id: editForm.priority ? (priorityMap[editForm.priority] || 2) : undefined,
+      due_date: editForm.due_date ? editForm.due_date.split('T')[0] : null,
+      employee_id: editForm.employee_id ? Number(editForm.employee_id) : undefined,
+      progress: progressMap[statusId] ?? 0
     };
+    // Remove undefined keys so they're excluded from PUT body
+    Object.keys(fullUpdate).forEach(k => fullUpdate[k] === undefined && delete fullUpdate[k]);
 
     try {
       if (!isAdmin) {
         await api.put(`/tasks/${id}`, statusUpdate);
+        showToast('Task status updated successfully');
       } else {
         await api.put(`/tasks/${id}`, fullUpdate);
+        showToast('Task updated & reassigned successfully');
       }
     } catch (err) {
-      console.warn('API update failed, saving to localStorage only.', err);
-      // Save to localStorage as fallback
-      updateLocalTask(isAdmin ? fullUpdate : statusUpdate);
+      console.warn('API update failed:', err.response?.data || err.message);
+      showToast('Failed to update task. Please try again.', 'error');
     }
 
     setEditing(false);
@@ -148,24 +132,14 @@ function TaskDetail() {
       return;
     }
 
-    // Always remove from localStorage first (covers local-only tasks)
-    const localTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
-    const updatedLocal = localTasks.filter(lt => String(lt.id || lt.task_id) !== String(id));
-    localStorage.setItem('myNewTasks', JSON.stringify(updatedLocal));
-
-    // Also remove from 'myTasks' and 'tasks' cache keys
-    const myTasksCache = JSON.parse(localStorage.getItem('myTasks') || '[]');
-    localStorage.setItem('myTasks', JSON.stringify(myTasksCache.filter(lt => String(lt.id || lt.task_id) !== String(id))));
-    const allTasksCache = JSON.parse(localStorage.getItem('tasks') || '[]');
-    localStorage.setItem('tasks', JSON.stringify(allTasksCache.filter(lt => String(lt.id || lt.task_id) !== String(id))));
-
     try {
       await api.delete(`/tasks/${id}`);
       showToast('Task deleted successfully');
+      navigate('/my-task');
     } catch (err) {
-      console.warn('API delete failed (task may be local-only):', err);
+      console.warn('API delete failed:', err.response?.data || err.message);
+      showToast('Failed to delete task. Please try again.', 'error');
     }
-    navigate('/my-task');
   };
 
   if (loading) {
@@ -317,12 +291,27 @@ function TaskDetail() {
                 )}
               </div>
 
-              {/* Assigned To detail */}
+              {/* Assigned To detail / Reassign dropdown */}
               <div>
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Assigned To</label>
-                <div className="flex items-center gap-2 mt-1.5 text-sm text-slate-700 font-medium">
-                  <User className="w-4 h-4 text-emerald-500" /> {task.assigned_to || task.assignedTo || 'Unassigned'}
-                </div>
+                {editing && role === 'admin' ? (
+                  <select
+                    value={editForm.employee_id}
+                    onChange={(e) => setEditForm({ ...editForm, employee_id: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none"
+                  >
+                    <option value="">Select / Reassign Employee...</option>
+                    {employees.map((emp) => (
+                      <option key={emp.employee_id} value={emp.employee_id}>
+                        {emp.first_name} {emp.last_name} {emp.email ? `(${emp.email})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="flex items-center gap-2 mt-1.5 text-sm text-slate-700 font-medium">
+                    <User className="w-4 h-4 text-emerald-500" /> {task.assigned_to || task.assignedTo || 'Unassigned'}
+                  </div>
+                )}
               </div>
             </div>
 

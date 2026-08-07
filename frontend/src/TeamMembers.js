@@ -35,106 +35,78 @@ function TeamMembers() {
     }
   }, []);
 
-  useEffect(() => {
-    const fetchUsers = async () => {
+  // Fetch all members from the database
+  const fetchUsers = async () => {
+    try {
+      let res;
       try {
-        let res;
-        try {
-          res = await api.get('/employees/');
-        } catch {
-          res = await api.get('/users/');
-        }
-        
-        let allTasks = [];
-        try {
-          const tasksRes = await api.get('/tasks/?skip=0&limit=1000');
-          allTasks = tasksRes.data || [];
-        } catch (e) {
-          console.log("Could not fetch tasks for count:", e);
-        }
-        
-        const localTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
-        const combinedTasks = [...allTasks, ...localTasks];
-        
-        const getTaskCounts = (empId, empName) => {
-          let assigned = 0;
-          let completed = 0;
-          
-          // Use a Set to avoid counting duplicate tasks (e.g., same task in API and local)
-          const seenTaskIds = new Set();
-          
-          combinedTasks.forEach(t => {
-            const taskId = String(t.task_id || t.id || Math.random());
-            if (seenTaskIds.has(taskId)) return;
-            seenTaskIds.add(taskId);
-            
-            const tEmpId = t.employee_id !== undefined && t.employee_id !== null ? String(t.employee_id) : '';
-            const tUserId = t.user_id !== undefined && t.user_id !== null ? String(t.user_id) : '';
-            const tAssignee = String(t.assigned_to || t.assignee || t.employee_name || '').toLowerCase();
-            const eName = String(empName || '').toLowerCase();
-            
-            const matchesId = empId && (tEmpId === String(empId) || tUserId === String(empId));
-            const matchesName = eName && tAssignee && (tAssignee.includes(eName) || eName.includes(tAssignee));
-            
-            if (matchesId || matchesName) {
-              assigned++;
-              const statusId = t.status_id ? Number(t.status_id) : null;
-              const rawStatus = String(t.status || '').toLowerCase().trim().replace(/[\s\-_]+/g, '');
-              
-              if (statusId === 3 || rawStatus === '3' || rawStatus === 'completed' || rawStatus === 'done') {
-                completed++;
-              }
-            }
-          });
-          return { assigned, completed };
-        };
-
-        if (res.data && res.data.length > 0) {
-          const apiMembers = res.data.map((u, i) => {
-            const empId = u.employee_id || u.id || u.user_id;
-            const empName = u.username || `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Employee';
-            const counts = getTaskCounts(empId, empName);
-            
-            return {
-              id: empId,
-              employee_id: u.employee_id,
-              name: empName,
-              email: u.email || '',
-              phone: u.phone || '',
-              designation: u.designation || '',
-              role: u.role || 'employee',
-              dept: u.department || u.dept || 'Development',
-              assigned: counts.assigned,
-              completed: counts.completed,
-              status: u.is_active !== false ? 'Active' : 'Inactive',
-              avatar: u.avatar || u.profile_photo || `https://randomuser.me/api/portraits/${i % 2 === 0 ? 'men' : 'women'}/${(i % 10) + 1}.jpg`
-            };
-          });
-          
-          const localStored = JSON.parse(localStorage.getItem('myNewMembers') || '[]');
-          
-          // Apply custom avatars from local storage to API members
-          apiMembers.forEach(am => {
-            const localMatch = localStored.find(l => l.email === am.email);
-            if (localMatch && localMatch.avatar && !localMatch.avatar.includes('randomuser.me')) {
-              am.avatar = localMatch.avatar;
-            }
-          });
-
-          const updatedLocalStored = localStored.map(l => {
-            const counts = getTaskCounts(l.employee_id || l.id, l.name);
-            return { ...l, assigned: counts.assigned, completed: counts.completed };
-          });
-
-          const merged = [...apiMembers, ...updatedLocalStored.filter(l => !apiMembers.find(a => a.email === l.email))];
-          setMembers(merged);
-          return;
-        }
-      } catch (err) {
-        console.log('Backend members endpoint unavailable.', err?.message);
+        res = await api.get('/employees/');
+      } catch {
+        res = await api.get('/users/');
       }
-      setMembers([]);
-    };
+      
+      let allTasks = [];
+      try {
+        const tasksRes = await api.get('/tasks/?skip=0&limit=1000');
+        allTasks = tasksRes.data || [];
+      } catch (e) {
+        console.log('Could not fetch tasks for count:', e);
+      }
+      
+      const getTaskCounts = (empId, empName) => {
+        let assigned = 0;
+        let completed = 0;
+        const seenTaskIds = new Set();
+        
+        allTasks.forEach(t => {
+          const taskId = String(t.task_id || t.id || Math.random());
+          if (seenTaskIds.has(taskId)) return;
+          seenTaskIds.add(taskId);
+          
+          const tEmpId = t.employee_id != null ? String(t.employee_id) : '';
+          const tUserId = t.user_id != null ? String(t.user_id) : '';
+          const matchesId = empId && (tEmpId === String(empId) || tUserId === String(empId));
+          
+          if (matchesId) {
+            assigned++;
+            const statusId = t.status_id ? Number(t.status_id) : null;
+            if (statusId === 3) completed++;
+          }
+        });
+        return { assigned, completed };
+      };
+
+      if (res.data && res.data.length > 0) {
+        const apiMembers = res.data.map((u, i) => {
+          const empId = u.employee_id || u.id || u.user_id;
+          const empName = u.username || `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Employee';
+          const counts = getTaskCounts(empId, empName);
+          
+          return {
+            id: empId,
+            employee_id: u.employee_id,
+            name: empName,
+            email: u.email || '',
+            phone: u.phone || '',
+            designation: u.designation || '',
+            role: u.role || 'employee',
+            dept: u.department || u.dept || 'Development',
+            assigned: counts.assigned,
+            completed: counts.completed,
+            status: u.is_active !== false ? 'Active' : 'Inactive',
+            avatar: u.avatar || u.profile_photo || `https://randomuser.me/api/portraits/${i % 2 === 0 ? 'men' : 'women'}/${(i % 10) + 1}.jpg`
+          };
+        });
+        setMembers(apiMembers);
+        return;
+      }
+    } catch (err) {
+      console.log('Backend members endpoint unavailable.', err?.message);
+    }
+    setMembers([]);
+  };
+
+  useEffect(() => {
     fetchUsers();
   }, []);
 
@@ -168,23 +140,37 @@ function TeamMembers() {
     };
     console.log("NEW MEMBER DATA:", newMemberObj);
 
+    const nameParts = (newMemberForm.username || 'New Employee').trim().split(' ');
+    const firstName = nameParts[0] || 'Employee';
+    const lastName = nameParts.slice(1).join(' ') || 'User';
+
+    const empPayload = {
+      first_name: firstName,
+      last_name: lastName,
+      email: newMemberForm.email || `${firstName.toLowerCase()}@company.com`,
+      phone: newMemberForm.phone || '1234567890',
+      department: newMemberForm.department || 'Development',
+      designation: newMemberForm.role === 'admin' ? 'Manager' : 'Developer'
+    };
+
     try {
-      await api.post('/auth/register', {
-        username: newMemberForm.username,
-        email: newMemberForm.email,
-        password: newMemberForm.password,
-        role: newMemberForm.role === 'admin' ? 'Admin' : 'Employee'
-      });
-      showToast('Member Added Successfully!');
+      await api.post('/employees/', empPayload);
+      showToast('Employee added to database successfully!');
     } catch (err) {
-      console.error('ADD MEMBER ERROR:', err.response?.data || err.message);
-      showToast(err.response?.data?.detail || 'Member Added!', 'info');
+      console.warn('POST /employees/ failed, trying /auth/register fallback:', err);
+      try {
+        await api.post('/auth/register', {
+          username: newMemberForm.username,
+          email: newMemberForm.email,
+          password: newMemberForm.password || 'password123',
+          role: newMemberForm.role === 'admin' ? 'Admin' : 'Employee'
+        });
+        showToast('Member registered successfully!');
+      } catch (authErr) {
+        console.error('ADD MEMBER ERROR:', authErr.response?.data || authErr.message);
+      }
     }
 
-    const oldLocal = JSON.parse(localStorage.getItem('myNewMembers') || '[]');
-    localStorage.setItem('myNewMembers', JSON.stringify([...oldLocal, newMemberObj]));
-
-    setMembers(prev => [...prev, newMemberObj]);
     setShowAddModal(false);
     setAvatarPreview(null);
     setNewMemberForm({
@@ -196,6 +182,9 @@ function TeamMembers() {
       department: 'Development',
       avatar: ''
     });
+
+    // Refresh from database
+    fetchUsers();
   };
 
   const handleDeleteMember = async (memberId) => {
@@ -363,7 +352,15 @@ function TeamMembers() {
               {/* PHOTO UPLOAD */}
               <div className="flex flex-col items-center gap-3">
                 <div className="w-24 h-24 rounded-full bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center overflow-hidden">
-                  {avatarPreview ? <img src={avatarPreview} alt="preview" className="w-full h-full object-cover" /> : <ImageIcon className="w-8 h-8 text-slate-400" />}
+                  {avatarPreview ? (
+                    <img src={avatarPreview} alt="preview" className="w-full h-full object-cover" />
+                  ) : newMemberForm.username.trim() ? (
+                    <span className="text-3xl font-bold text-slate-400">
+                      {newMemberForm.username.trim().split(/\s+/).map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                    </span>
+                  ) : (
+                    <ImageIcon className="w-8 h-8 text-slate-400" />
+                  )}
                 </div>
                 <label className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold cursor-pointer hover:bg-black">
                   <Upload className="w-4 h-4" /> Upload Photo

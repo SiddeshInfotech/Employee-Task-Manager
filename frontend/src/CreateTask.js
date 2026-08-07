@@ -79,60 +79,30 @@ function CreateTask() {
       assignedEmpId = currentEmployeeId && Number(currentEmployeeId) <= 2147483647 ? Number(currentEmployeeId) : null;
     }
 
-    const assignedName = assignedUserObj ? (assignedUserObj.username || assignedUserObj.name) : (localStorage.getItem('username') || 'Employee');
+    const statusIdNum = Number(taskForm.status_id);
+    const initialProgress = statusIdNum === 3 ? 100 : statusIdNum === 2 ? 50 : 0;
 
     const payload = {
       task_title: taskForm.title,
       task_description: taskForm.description,
       employee_id: assignedEmpId,
-      assigned_to: assignedName,
-      status_id: Number(taskForm.status_id),
-      priority_id: Number(taskForm.priority_id),
-      due_date: formattedDueDate
+      status_id: statusIdNum,
+      priority_id: taskForm.priority_id ? Number(taskForm.priority_id) : undefined,
+      due_date: formattedDueDate,
+      progress: initialProgress
     };
+    // Remove undefined fields before sending
+    Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
 
-    const localTaskItem = {
-      id: Date.now(),
-      task_id: Date.now(),
-      task_title: taskForm.title,
-      title: taskForm.title,
-      task: taskForm.title,
-      task_description: taskForm.description,
-      employee_id: assignedEmpId,
-      assigned_to: assignedName,
-      assignee: assignedName,
-      status_id: Number(taskForm.status_id),
-      status:
-        taskForm.status_id === 1 || taskForm.status_id === "1"
-          ? "Pending"
-          : taskForm.status_id === 2 || taskForm.status_id === "2"
-            ? "In Progress"
-            : "Completed",
-
-      priority_id: Number(taskForm.priority_id),
-      priority:
-        taskForm.priority_id === 1 || taskForm.priority_id === "1"
-          ? "High"
-          : taskForm.priority_id === 2 || taskForm.priority_id === "2"
-            ? "Medium"
-            : "Low",
-      due_date: formattedDueDate || new Date().toISOString().split('T')[0]
-    };
     try {
-      console.log("TASK PAYLOAD:", payload);
       const res = await api.post('/tasks/', payload);
       if (res && res.data) {
-        // Use the real task_id from the API response
-        localTaskItem.id = res.data.task_id;
-        localTaskItem.task_id = res.data.task_id;
+        showToast('Task created successfully!');
+        navigate('/my-task');
       }
     } catch (err) {
-      console.error("Task creation failed via API, saving locally:", err);
-    } finally {
-      // Always save locally so the task appears in the UI immediately
-      const existing = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
-      localStorage.setItem('myNewTasks', JSON.stringify([...existing, localTaskItem]));
-      navigate('/my-task');
+      console.error('Task creation failed:', err.response?.data || err.message);
+      showToast('Failed to create task. Please try again.', 'error');
     }
   };
   const handleReset = () => {
@@ -259,7 +229,7 @@ function CreateTask() {
 
             <div>
               <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">
-                Priority
+                Priority (Optional)
               </label>
 
               <select

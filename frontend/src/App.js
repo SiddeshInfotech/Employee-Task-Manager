@@ -17,6 +17,7 @@ import Reports from './Reports';
 import CreateTask from './CreateTask';
 import TaskDetail from './TaskDetail';
 import AddMember from './AddMember';
+import WorkProgress from './WorkProgress';
 import './App.css';
 
 const ProtectedRoute = ({ children }) => {
@@ -69,6 +70,7 @@ function App() {
           <Route path="/create-task" element={<ProtectedRoute><CreateTask /></ProtectedRoute>} />
           <Route path="/tasks/:id" element={<ProtectedRoute><TaskDetail /></ProtectedRoute>} />
           <Route path="/add-member" element={<ProtectedRoute><AddMember /></ProtectedRoute>} />
+          <Route path="/work-progress" element={<ProtectedRoute><WorkProgress /></ProtectedRoute>} />
           <Route path="*" element={<WildcardRedirect />} />
         </Routes>
       </div>

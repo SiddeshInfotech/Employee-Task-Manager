@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Bell, LogOut, Menu, X, CheckCheck, Layers, LayoutDashboard, Home, Users, CheckSquare, AlertCircle, BarChart3, Calendar, Settings as SettingsIcon } from 'lucide-react';
+import { Bell, LogOut, Menu, X, CheckCheck, Layers, LayoutDashboard, Home, Users, CheckSquare, AlertCircle, BarChart3, Calendar, Settings as SettingsIcon, TrendingUp } from 'lucide-react';
 import api, { showToast } from './axios';
 import { useTranslation } from 'react-i18next';
 
@@ -166,6 +166,7 @@ function Navbar() {
     { name: 'Priority', key: 'priority', path: '/priority', icon: AlertCircle },
     { name: 'Task Status', key: 'taskStatus', path: '/task-status', icon: BarChart3 },
     { name: 'Due Date', key: 'dueDate', path: '/due-date', icon: Calendar },
+    { name: 'Work Progress', key: 'workProgress', path: '/work-progress', icon: TrendingUp },
     ...(isAdmin ? [{ name: 'Reports', key: 'reports', path: '/reports', icon: BarChart3 }] : []),
     { name: 'Settings', key: 'settings', path: '/settings', icon: SettingsIcon },
   ];

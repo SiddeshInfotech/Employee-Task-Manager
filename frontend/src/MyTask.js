@@ -40,19 +40,16 @@ function MyTask() {
     const priorityDisplay = priorityStr.charAt(0).toUpperCase() + priorityStr.slice(1);
 
 
-    // Calculate progress according to priority
-    const pLower = priorityStr.toLowerCase();
-    let progressVal = 20;
-    if (pLower === 'high' || t.priority_id === 1) {
-      progressVal = 90;
-    } else if (pLower === 'medium' || t.priority_id === 2) {
-      progressVal = 50;
-    } else if (pLower === 'low' || t.priority_id === 3) {
-      progressVal = 20;
-    }
-
-    if (statusDisplay.toLowerCase() === 'completed' || t.status_id === 3) {
-      progressVal = 100;
+    // Calculate progress strictly from status/actual work (not priority)
+    let progressVal = (typeof t.progress === 'number' && !isNaN(t.progress)) ? t.progress : null;
+    if (progressVal === null) {
+      if (statusDisplay.toLowerCase() === 'completed' || Number(t.status_id) === 3) {
+        progressVal = 100;
+      } else if (statusDisplay.toLowerCase() === 'in progress' || Number(t.status_id) === 2) {
+        progressVal = 50;
+      } else {
+        progressVal = 0;
+      }
     }
 
 
@@ -94,36 +91,18 @@ function MyTask() {
   };
 
   const fetchTasks = async () => {
-    const localTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
-
     try {
       const res = await api.get('/tasks/?skip=0&limit=100');
       if (res.data) {
         let taskData = res.data;
-
         if (role !== 'admin') {
           taskData = taskData.filter(isTaskForCurrentUser);
         }
-
-        // Merge local tasks (avoid duplicates by id and title)
-        const apiIds = new Set(taskData.map(t => String(t.task_id || t.id)));
-        const apiTitles = new Set(taskData.map(t => String(t.task_title || t.title || t.task || t.name || '').toLowerCase().trim()));
-        
-        const filteredLocal = localTasks.filter(lt => {
-          const hasId = apiIds.has(String(lt.id || lt.task_id));
-          const hasTitle = apiTitles.has(String(lt.task_title || lt.title || lt.task || lt.name || '').toLowerCase().trim());
-          if (hasId || hasTitle) return false;
-          return isTaskForCurrentUser(lt);
-        });
-
-        const merged = [...taskData, ...filteredLocal];
-        setTasks(merged.map(mapTask));
+        setTasks(taskData.map(mapTask));
       }
-
     } catch (err) {
-      console.warn("API unavailable, loading from localStorage:", err);
-      const filteredLocal = localTasks.filter(isTaskForCurrentUser);
-      setTasks(filteredLocal.map(mapTask));
+      console.warn('API unavailable:', err);
+      setTasks([]);
     }
   };
 
@@ -133,39 +112,17 @@ function MyTask() {
 
   const handleDeleteTask = async (id) => {
     if (role !== 'admin') {
-      showToast(t("adminDeleteOnly"), 'error');
+      showToast(t('adminDeleteOnly'), 'error');
       return;
     }
-
-    // Find task title so we can remove by title too (handles mismatched IDs)
-    const deletedTask = tasks.find(t => String(t.id) === String(id));
-    const deletedTitle = (deletedTask?.task || '').toLowerCase().trim();
-
-    // Remove from all localStorage keys by both ID and title
-    const removeFromCache = (key) => {
-      const cached = JSON.parse(localStorage.getItem(key) || '[]');
-      const updated = cached.filter(lt => {
-        const ltId = String(lt.id || lt.task_id);
-        const ltTitle = String(lt.task_title || lt.title || lt.task || lt.name || '').toLowerCase().trim();
-        if (ltId === String(id)) return false;
-        if (deletedTitle && ltTitle === deletedTitle) return false;
-        return true;
-      });
-      localStorage.setItem(key, JSON.stringify(updated));
-    };
-    removeFromCache('myNewTasks');
-    removeFromCache('myTasks');
-    removeFromCache('tasks');
-
-    // Attempt API delete silently (don't block on failure)
     try {
       await api.delete(`/tasks/${id}`);
+      showToast('Task deleted successfully');
+      fetchTasks();
     } catch (err) {
-      console.warn("API delete failed (task may be local-only):", err);
+      console.warn('API delete failed:', err.response?.data || err.message);
+      showToast('Failed to delete task. Please try again.', 'error');
     }
-
-    showToast('Task deleted successfully');
-    fetchTasks();
   };
 
   const getStatusStyle = (status) => {

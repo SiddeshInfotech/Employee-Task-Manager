@@ -1,0 +1,15 @@
+# Node dependencies
+node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Virtual environment
+venv/
+.venv/
+
+# Environment variables & DBs
+.env
+*.db

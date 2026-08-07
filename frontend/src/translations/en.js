@@ -9,6 +9,7 @@ const en = {
     team: "Team Members",
     priority: "Priority",
     dueDate: "Due Date",
+    workProgress: "Work Progress",
 
     home: "Home",
     taskStatus: "Task Status",

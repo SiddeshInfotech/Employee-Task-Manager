@@ -1,0 +1,92 @@
+﻿/* ============================================
+   WorkProgress.css — Styles & Animations
+   ============================================ */
+
+/* Fade-in animation */
+@keyframes wpFadeIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.wp-fadein {
+  animation: wpFadeIn 0.45s cubic-bezier(0.22,1,0.36,1) both;
+}
+
+/* Spin for refresh button */
+@keyframes wpSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.wp-spin {
+  animation: wpSpin 0.9s linear infinite;
+}
+
+/* Stat card hover lift */
+.wp-stat-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.wp-stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.35);
+}
+
+/* Card base */
+.wp-card {
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+}
+
+/* Donut ring smooth animation */
+.wp-donut-bar {
+  transition: stroke-dashoffset 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+  filter: drop-shadow(0 0 6px rgba(99,102,241,0.5));
+}
+.wp-donut {
+  filter: drop-shadow(0 0 10px rgba(59,130,246,0.15));
+}
+
+/* Progress bar animated fill */
+.wp-bar-animate {
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Row hover */
+.wp-row {
+  border-radius: 12px;
+  transition: background 0.2s ease;
+}
+
+/* Refresh button */
+.wp-refresh-btn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.wp-refresh-btn:hover {
+  background: rgba(59,130,246,0.15);
+  border-color: rgba(59,130,246,0.4);
+}
+
+/* Employee filter dropdown (admin) */
+.wp-select {
+  background: rgba(15,23,42,0.8);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  color: #e2e8f0;
+  padding: 6px 10px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  font-size: 12px;
+  font-weight: 700;
+}
+.wp-select:focus, .wp-select:hover {
+  border-color: rgba(59,130,246,0.5);
+}
+.wp-select option {
+  background: #0f172a;
+  color: #e2e8f0;
+}

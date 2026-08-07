@@ -79,30 +79,16 @@ function TaskStatus() {
   };
 
   const fetchTasks = async () => {
-    const localTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
-
     try {
       const res = await api.get('/tasks/?skip=0&limit=100');
       let apiData = (res.data && res.data.length > 0) ? res.data : [];
-      // Filter API tasks for employees
       if (role !== 'admin') {
         apiData = apiData.filter(isTaskForCurrentUser);
       }
-      const apiIds = new Set(apiData.map(t => String(t.task_id || t.id)));
-      const apiTitles = new Set(apiData.map(t => String(t.task_title || t.title || t.task || t.name || '').toLowerCase().trim()));
-      // Filter local tasks for this user and remove duplicates
-      const extraLocal = localTasks
-        .filter(lt => isTaskForCurrentUser(lt))
-        .filter(lt => {
-          const hasId = apiIds.has(String(lt.id || lt.task_id));
-          const hasTitle = apiTitles.has(String(lt.task_title || lt.title || lt.task || lt.name || '').toLowerCase().trim());
-          return !hasId && !hasTitle;
-        });
-      const merged = [...apiData, ...extraLocal];
-      setTasks(groupTasks(merged));
+      setTasks(groupTasks(apiData));
     } catch (err) {
-      console.warn("API unavailable, loading from localStorage:", err);
-      setTasks(groupTasks(localTasks.filter(isTaskForCurrentUser)));
+      console.warn('API unavailable:', err);
+      setTasks(groupTasks([]));
     }
   };
 
@@ -139,23 +125,15 @@ function TaskStatus() {
       return updated;
     });
 
-    // Update localStorage
-    const localTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
-    const updatedLocal = localTasks.map(lt => {
-      const ltId = String(lt.id || lt.task_id);
-      const ltName = (lt.task_title || lt.title || lt.task || '').toLowerCase();
-      if (ltId === String(taskId) || (targetTask.name && ltName === targetTask.name.toLowerCase())) {
-        return { ...lt, status: statusStr, status_id: statusId };
-      }
-      return lt;
-    });
-    localStorage.setItem('myNewTasks', JSON.stringify(updatedLocal));
-
-    // Attempt API update silently
+    // Update API with new status and derived progress
+    const progressMap = { 1: 0, 2: 50, 3: 100, 4: 0 };
     try {
-      await api.put(`/tasks/${taskId}`, { status_id: statusId });
+      await api.put(`/tasks/${taskId}`, {
+        status_id: statusId,
+        progress: progressMap[statusId] ?? 0
+      });
     } catch (err) {
-      console.warn("API update failed (task may be local-only):", err);
+      console.warn('API update failed:', err.response?.data || err.message);
     }
   };
 

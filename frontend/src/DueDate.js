@@ -94,30 +94,6 @@ function DueDate() {
     const fetchTasks = async () => {
       setLoading(true);
 
-      const localNew = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
-      const localMy = JSON.parse(localStorage.getItem('myTasks') || '[]');
-      const localAll = JSON.parse(localStorage.getItem('tasks') || '[]');
-      const localTasks = [...localNew, ...localMy, ...localAll];
-
-      const seenLocalIds = new Set();
-      const seenLocalTitles = new Set();
-      const uniqueLocal = [];
-      localTasks.forEach(lt => {
-        const idKey = String(lt.task_id || lt.id);
-        const titleKey = String(lt.task_title || lt.title || lt.task || lt.name || '').toLowerCase().trim();
-        
-        const hasId = idKey !== 'undefined' && seenLocalIds.has(idKey);
-        const hasTitle = titleKey !== '' && seenLocalTitles.has(titleKey);
-
-        if (!hasId && !hasTitle) {
-          if (idKey !== 'undefined') seenLocalIds.add(idKey);
-          if (titleKey !== '') seenLocalTitles.add(titleKey);
-          uniqueLocal.push(lt);
-        }
-      });
-
-      const filteredLocal = uniqueLocal.filter(isTaskForCurrentUser);
-
       try {
         const res = await api.get('/tasks/?skip=0&limit=100');
         let apiData = (res.data && res.data.length > 0) ? res.data : [];
@@ -126,23 +102,12 @@ function DueDate() {
           apiData = apiData.filter(isTaskForCurrentUser);
         }
 
-        // Merge without duplicates
-        const apiIds = new Set(apiData.map(t => String(t.task_id || t.id)));
-        const apiTitles = new Set(apiData.map(t => String(t.task_title || t.title || t.task || t.name || '').toLowerCase().trim()));
-        
-        const extraLocal = filteredLocal.filter(lt => {
-          const hasId = apiIds.has(String(lt.id || lt.task_id));
-          const hasTitle = apiTitles.has(String(lt.task_title || lt.title || lt.task || lt.name || '').toLowerCase().trim());
-          return !hasId && !hasTitle;
-        });
-        const merged = [...apiData, ...extraLocal];
-
-        setTasks(merged);
-        classifyTasks(merged);
+        setTasks(apiData);
+        classifyTasks(apiData);
       } catch (err) {
-        console.warn('API unavailable, loading from localStorage:', err);
-        setTasks(filteredLocal);
-        classifyTasks(filteredLocal);
+        console.warn('API unavailable:', err);
+        setTasks([]);
+        classifyTasks([]);
       } finally {
         setLoading(false);
       }
@@ -207,7 +172,7 @@ function DueDate() {
     const targetTask = tasks.find(t => String(t.task_id || t.id) === String(taskId));
     if (!targetTask) return;
 
-    // Update tasks state with new due_date
+    // Optimistically update React state
     const updatedTasks = tasks.map(t => {
       if (String(t.task_id || t.id) === String(taskId)) {
         return { ...t, due_date: isoString };
@@ -218,24 +183,12 @@ function DueDate() {
     setTasks(updatedTasks);
     classifyTasks(updatedTasks);
 
-    // Update localStorage
-    const localTasks = JSON.parse(localStorage.getItem('myNewTasks') || '[]');
-    const updatedLocal = localTasks.map(lt => {
-      const ltId = String(lt.id || lt.task_id);
-      const ltName = (lt.task_title || lt.title || lt.task || '').toLowerCase();
-      const targetName = (targetTask.task_title || targetTask.title || targetTask.name || '').toLowerCase();
-      if (ltId === String(taskId) || (targetName && ltName === targetName)) {
-        return { ...lt, due_date: isoString };
-      }
-      return lt;
-    });
-    localStorage.setItem('myNewTasks', JSON.stringify(updatedLocal));
-
-    // Attempt API update silently
+    // Persist to database
     try {
-      await api.put(`/tasks/${taskId}`, { due_date: isoString });
+      await api.put(`/tasks/${taskId}`, { due_date: isoString.split('T')[0] });
     } catch (err) {
-      console.warn("API update failed (task may be local-only):", err);
+      console.warn('API update failed:', err.response?.data || err.message);
+      showToast('Failed to update due date. Please try again.', 'error');
     }
   };
 
@@ -377,6 +330,19 @@ function DueDate() {
                     <span className="text-slate-500 font-medium">Due: {t.due}</span>
                     <span className="px-2 py-0.5 bg-rose-100 text-rose-600 rounded-full font-bold text-[10px] uppercase">{t.label || 'Overdue'}</span>
                   </div>
+                  {role === 'admin' && (
+                    <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/tasks/${t.id}`, { state: { edit: true } });
+                        }}
+                        className="text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1"
+                      >
+                        Extend Due Date / Reassign <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
